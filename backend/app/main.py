@@ -1,4 +1,6 @@
+import os
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
@@ -17,14 +19,30 @@ from app.storage.models import (
     WorkMode,
 )
 
-app = FastAPI(title="Personalized Career Site API")
 _state: AppState | None = None
 
 
-def get_state() -> AppState:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Build the singleton app state once, before the server accepts traffic.
+
+    Startup runs single-threaded, so there is no initialization race: by the
+    time any threadpool worker handles a request, _state is fully built.
+
+    CAREER_DB_PATH points at a file so uploaded resumes and applications
+    survive a restart; it defaults to ":memory:" for ephemeral local runs.
+    """
     global _state
+    _state = AppState.seeded(db_path=os.environ.get("CAREER_DB_PATH", ":memory:"))
+    yield
+
+
+app = FastAPI(title="Personalized Career Site API", lifespan=lifespan)
+
+
+def get_state() -> AppState:
     if _state is None:
-        _state = AppState.seeded()
+        raise RuntimeError("app state not initialized; lifespan did not run")
     return _state
 
 
@@ -100,8 +118,8 @@ def get_job(job_id: str, state: AppState = Depends(get_state)) -> JobOut:
 
 @app.post("/upload-resume")
 def upload_resume(
-    candidate_id: str = Form(...),
     file: UploadFile = File(...),
+    candidate_id: str | None = Form(default=None),
     state: AppState = Depends(get_state),
 ) -> dict[str, object]:
     data = file.file.read()
@@ -109,10 +127,13 @@ def upload_resume(
         text = parse_resume(file.filename or "", data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    # Mint an opaque ID on first upload; reuse the client's stored one when a
+    # returning candidate replaces their resume. Pseudonymous, not authenticated.
+    cid = candidate_id or str(uuid.uuid4())
     state.db.insert_candidate(
-        Candidate(id=candidate_id, resume_text=text, created_at=_now())
+        Candidate(id=cid, resume_text=text, created_at=_now())
     )
-    return {"candidate_id": candidate_id, "char_count": len(text)}
+    return {"candidate_id": cid, "char_count": len(text)}
 
 
 @app.post("/apply", response_model=ApplicationOut)

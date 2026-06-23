@@ -23,8 +23,12 @@ class AppState:
         self.ranker = Ranker(self.index)
 
     @classmethod
-    def seeded(cls, n: int = 500, seed: int = 0) -> "AppState":
-        db = Database()
+    def seeded(
+        cls, n: int = 500, seed: int = 0, db_path: str = ":memory:"
+    ) -> "AppState":
+        # db_path=":memory:" for tests; deployment passes a file path so
+        # uploaded resumes/applications survive a server restart.
+        db = Database(db_path)
         db.init_schema()
         jobs = generate(n, seed=seed)
         db.insert_jobs(jobs)
