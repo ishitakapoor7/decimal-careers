@@ -3,6 +3,7 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
+import numpy as np
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 
 from app.resume.parser import parse_resume
@@ -98,7 +99,12 @@ def list_jobs(
     candidate = state.db.get_candidate(candidate_id) if candidate_id else None
     if candidate and candidate.resume_text:
         allowed = state.db.job_ids_matching(filters)
-        query = state.embedder.encode([candidate.resume_text])[0]
+        # Reuse the vector computed at upload; only re-embed if this candidate
+        # predates the stored-vector column (defensive fallback).
+        if candidate.resume_vector is not None:
+            query = np.frombuffer(candidate.resume_vector, dtype=np.float32)
+        else:
+            query = state.embedder.encode([candidate.resume_text])[0]
         ids, total = state.ranker.rank_ids(query, allowed, limit, offset)
         items = [_to_out(job) for i in ids if (job := state.db.get_job(i))]
         return JobsPage(items=items, total=total, limit=limit, offset=offset)
@@ -130,8 +136,11 @@ def upload_resume(
     # Mint an opaque ID on first upload; reuse the client's stored one when a
     # returning candidate replaces their resume. Pseudonymous, not authenticated.
     cid = candidate_id or str(uuid.uuid4())
+    # Embed once here so the personalized /jobs path (incl. every pagination
+    # click) reuses the stored vector instead of re-running the model.
+    vector = state.embedder.encode([text])[0].tobytes() if text else None
     state.db.insert_candidate(
-        Candidate(id=cid, resume_text=text, created_at=_now())
+        Candidate(id=cid, resume_text=text, resume_vector=vector, created_at=_now())
     )
     return {"candidate_id": cid, "char_count": len(text)}
 

@@ -48,7 +48,8 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_jobs_level ON jobs(seniority_level);
                 CREATE INDEX IF NOT EXISTS idx_jobs_mode ON jobs(work_mode);
                 CREATE TABLE IF NOT EXISTS candidates (
-                    id TEXT PRIMARY KEY, resume_text TEXT, created_at TEXT
+                    id TEXT PRIMARY KEY, resume_text TEXT, created_at TEXT,
+                    resume_vector BLOB
                 );
                 CREATE TABLE IF NOT EXISTS applications (
                     id TEXT PRIMARY KEY, candidate_id TEXT, job_id TEXT,
@@ -158,8 +159,8 @@ class Database:
     def insert_candidate(self, c: Candidate) -> None:
         with self._lock:
             self._conn.execute(
-                "INSERT OR REPLACE INTO candidates VALUES (?,?,?)",
-                (c.id, c.resume_text, c.created_at),
+                "INSERT OR REPLACE INTO candidates VALUES (?,?,?,?)",
+                (c.id, c.resume_text, c.created_at, c.resume_vector),
             )
             self._conn.commit()
 
@@ -173,6 +174,7 @@ class Database:
                 id=row["id"],
                 resume_text=row["resume_text"],
                 created_at=row["created_at"],
+                resume_vector=row["resume_vector"],
             )
             if row
             else None

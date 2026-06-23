@@ -53,6 +53,10 @@ class Candidate:
     id: str
     resume_text: str
     created_at: str
+    # Resume embedding, persisted as raw float32 bytes so pagination/re-rank
+    # reuses it instead of re-running the model on every request. Optional:
+    # candidates predating this column (or with no extractable text) have None.
+    resume_vector: bytes | None = None
 
 
 @dataclass(frozen=True)
