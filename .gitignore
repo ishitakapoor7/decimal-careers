@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project docs (kept local, not committed)
+docs/
+
+# Local SQLite database files
+*.db
