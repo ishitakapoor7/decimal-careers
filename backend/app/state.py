@@ -16,10 +16,14 @@ def build_index(jobs: list[Job], embedder: Embedder) -> JobIndex:
 
 
 class AppState:
-    def __init__(self, db: Database, embedder: Embedder, jobs: list[Job]) -> None:
+    def __init__(self, db: Database, embedder: Embedder) -> None:
         self.db = db
         self.embedder = embedder
-        self.index = build_index(jobs, embedder)
+        # The DB is the single source of truth: build the index from whatever
+        # catalog is persisted, never from a separately-generated list that could
+        # diverge from the DB (caveat §0 — old code regenerated at boot and left
+        # orphan rows that browse could see but personalization could not rank).
+        self.index = build_index(db.all_jobs(), embedder)
         self.ranker = Ranker(self.index)
 
     @classmethod
@@ -30,6 +34,8 @@ class AppState:
         # uploaded resumes/applications survive a server restart.
         db = Database(db_path)
         db.init_schema()
-        jobs = generate(n, seed=seed)
-        db.insert_jobs(jobs)
-        return cls(db, Embedder(), jobs)
+        # Seed synthetic jobs ONLY when the catalog is empty. A persistent DB
+        # pre-seeded by scripts/seed.py is used as-is, never partially rebuilt.
+        if db.count_jobs() == 0:
+            db.insert_jobs(generate(n, seed=seed))
+        return cls(db, Embedder())

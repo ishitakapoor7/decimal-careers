@@ -69,6 +69,31 @@ def test_job_ids_matching_returns_set():
     assert ids == {"j1", "j2"}
 
 
+def test_all_jobs_returns_every_inserted_job():
+    db = Database()
+    db.init_schema()
+    db.insert_jobs(
+        [
+            make_job("j2", Team.MARKETING, SeniorityLevel.SENIOR, WorkMode.ONSITE),
+            make_job("j1", Team.ENGINEERING, SeniorityLevel.MID, WorkMode.REMOTE),
+        ]
+    )
+    got = db.all_jobs()
+    assert {j.id for j in got} == {"j1", "j2"}
+    # full Job objects round-trip, not just ids
+    assert db.get_job("j1") in got and db.get_job("j2") in got
+
+
+def test_count_jobs_reflects_inserts():
+    db = Database()
+    db.init_schema()
+    assert db.count_jobs() == 0
+    db.insert_jobs(
+        [make_job("j1", Team.ENGINEERING, SeniorityLevel.MID, WorkMode.REMOTE)]
+    )
+    assert db.count_jobs() == 1
+
+
 def test_application_roundtrip():
     db = Database()
     db.init_schema()

@@ -156,6 +156,19 @@ class Database:
             ).fetchall()
         return {r["id"] for r in rows}
 
+    def all_jobs(self) -> list[Job]:
+        # Whole catalog, id-ordered for determinism. Feeds the boot-time index
+        # build so the index always mirrors the persisted DB (caveat §0).
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM jobs ORDER BY id").fetchall()
+        return [self._row_to_job(r) for r in rows]
+
+    def count_jobs(self) -> int:
+        with self._lock:
+            return self._conn.execute(
+                "SELECT COUNT(*) AS n FROM jobs"
+            ).fetchone()["n"]
+
     def insert_candidate(self, c: Candidate) -> None:
         with self._lock:
             self._conn.execute(
