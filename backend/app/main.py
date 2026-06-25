@@ -59,7 +59,6 @@ def _to_out(job: Job) -> JobOut:
         team=job.team.value,
         employment_type=job.employment_type.value,
         seniority_level=job.seniority_level.value,
-        min_years_exp=job.min_years_exp,
         city=job.city,
         state_region=job.state_region,
         country=job.country,

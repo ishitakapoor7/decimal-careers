@@ -40,7 +40,7 @@ class Database:
                 """
                 CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY, title TEXT, team TEXT, employment_type TEXT,
-                    seniority_level TEXT, min_years_exp INTEGER, city TEXT,
+                    seniority_level TEXT, city TEXT,
                     state_region TEXT, country TEXT, work_mode TEXT,
                     skills TEXT, description TEXT
                 );
@@ -62,7 +62,7 @@ class Database:
     def insert_jobs(self, jobs: list[Job]) -> None:
         with self._lock:
             self._conn.executemany(
-                "INSERT OR REPLACE INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                 [
                     (
                         j.id,
@@ -70,7 +70,6 @@ class Database:
                         j.team.value,
                         j.employment_type.value,
                         j.seniority_level.value,
-                        j.min_years_exp,
                         j.city,
                         j.state_region,
                         j.country,
@@ -90,7 +89,6 @@ class Database:
             team=Team(row["team"]),
             employment_type=EmploymentType(row["employment_type"]),
             seniority_level=SeniorityLevel(row["seniority_level"]),
-            min_years_exp=row["min_years_exp"],
             city=row["city"],
             state_region=row["state_region"],
             country=row["country"],

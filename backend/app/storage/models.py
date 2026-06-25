@@ -39,7 +39,6 @@ class Job:
     team: Team
     employment_type: EmploymentType
     seniority_level: SeniorityLevel
-    min_years_exp: int
     city: str
     state_region: str
     country: str

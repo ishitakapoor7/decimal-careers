@@ -17,7 +17,6 @@ def _job(title: str, skills: list[str], desc: str) -> Job:
         team=Team.ENGINEERING,
         employment_type=EmploymentType.FULL_TIME,
         seniority_level=SeniorityLevel.MID,
-        min_years_exp=3,
         city="NYC",
         state_region="NY",
         country="USA",

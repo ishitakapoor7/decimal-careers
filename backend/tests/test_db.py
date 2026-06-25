@@ -19,7 +19,6 @@ def make_job(jid: str, team: Team, level: SeniorityLevel, mode: WorkMode) -> Job
         team=team,
         employment_type=EmploymentType.FULL_TIME,
         seniority_level=level,
-        min_years_exp=2,
         city="New York",
         state_region="NY",
         country="USA",

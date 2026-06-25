@@ -10,14 +10,11 @@ def test_generate_count_and_determinism():
     assert len({j.id for j in a}) == 50  # unique ids
 
 
-def test_level_and_years_are_coherent():
+def test_intern_level_implies_internship():
     jobs = generate(200, seed=2)
     for j in jobs:
-        if j.seniority_level == SeniorityLevel.SENIOR:
-            assert j.min_years_exp >= 5
         if j.seniority_level == SeniorityLevel.INTERN:
             assert j.employment_type == EmploymentType.INTERNSHIP
-            assert j.min_years_exp == 0
 
 
 def test_skills_match_team_cluster():

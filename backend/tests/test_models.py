@@ -14,7 +14,6 @@ def test_job_constructs_with_enum_values():
         team=Team.ENGINEERING,
         employment_type=EmploymentType.FULL_TIME,
         seniority_level=SeniorityLevel.MID,
-        min_years_exp=3,
         city="New York",
         state_region="NY",
         country="USA",

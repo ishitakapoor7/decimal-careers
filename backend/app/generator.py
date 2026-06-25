@@ -26,13 +26,6 @@ _TITLES: dict[Team, str] = {
     Team.FINANCE: "Financial Analyst",
     Team.OPERATIONS: "Operations Manager",
 }
-_LEVEL_YEARS: dict[SeniorityLevel, int] = {
-    SeniorityLevel.INTERN: 0,
-    SeniorityLevel.ENTRY: 0,
-    SeniorityLevel.MID: 3,
-    SeniorityLevel.SENIOR: 6,
-    SeniorityLevel.STAFF: 9,
-}
 _LEVEL_PREFIX: dict[SeniorityLevel, str] = {
     SeniorityLevel.INTERN: "Intern,",
     SeniorityLevel.ENTRY: "Junior",
@@ -93,7 +86,6 @@ def generate(n: int, seed: int = 0) -> list[Job]:
                 team=team,
                 employment_type=emp,
                 seniority_level=level,
-                min_years_exp=_LEVEL_YEARS[level],
                 city=city,
                 state_region=state,
                 country=country,

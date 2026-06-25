@@ -81,6 +81,13 @@ def test_upload_reuses_supplied_id():
     assert again.json()["candidate_id"] == "keep-me"
 
 
+def test_job_response_omits_min_years_exp():
+    # min_years_exp was dropped (§2) until the Phase-2 seniority penalty needs it;
+    # it must not appear on the wire.
+    item = client.get("/jobs", params={"limit": 1}).json()["items"][0]
+    assert "min_years_exp" not in item
+
+
 def test_upload_empty_resume_returns_400():
     # A valid file we can't extract any text from (e.g. a scanned/image PDF, here
     # an empty docx) must signal failure, not silently fall back to plain browse.

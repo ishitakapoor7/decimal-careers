@@ -7,7 +7,6 @@ class JobOut(BaseModel):
     team: str
     employment_type: str
     seniority_level: str
-    min_years_exp: int
     city: str
     state_region: str
     country: str
