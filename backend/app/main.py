@@ -109,7 +109,9 @@ def list_jobs(
             query = np.frombuffer(candidate.resume_vector, dtype=np.float32)
         else:
             query = state.embedder.encode([candidate.resume_text])[0]
-        ids, total = state.ranker.rank_ids(query, allowed, limit, offset)
+        ids, total = state.ranker.rank_ids(
+            query, allowed, limit, offset, cache_key=candidate_id
+        )
         items = [_to_out(job) for i in ids if (job := state.db.get_job(i))]
         return JobsPage(items=items, total=total, limit=limit, offset=offset)
     jobs, total = state.db.query_jobs(filters, limit, offset)
@@ -155,6 +157,8 @@ def upload_resume(
     state.db.insert_candidate(
         Candidate(id=cid, resume_text=text, resume_vector=vector, created_at=_now())
     )
+    # Bust any cached ranking so the new resume re-ranks on the next /jobs call.
+    state.ranker.invalidate(cid)
     return {"candidate_id": cid, "char_count": len(text)}
 
 

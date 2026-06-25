@@ -43,3 +43,27 @@ def test_rank_paginates():
     )
     assert ids == ["c"]
     assert total == 3
+
+
+def test_search_is_cached_per_key_across_pages():
+    idx = _index()
+    calls = {"n": 0}
+    real = idx.search
+
+    def counting(query, k):
+        calls["n"] += 1
+        return real(query, k)
+
+    idx.search = counting  # type: ignore[method-assign]
+    ranker = Ranker(idx)
+    q = _unit([1, 0])
+
+    # Two pages for the same candidate reuse a single index.search.
+    ranker.rank_ids(q, {"a", "b", "c"}, limit=1, offset=0, cache_key="cand")
+    ranker.rank_ids(q, {"a", "b", "c"}, limit=1, offset=1, cache_key="cand")
+    assert calls["n"] == 1
+
+    # Invalidation (e.g. on re-upload) forces a recompute.
+    ranker.invalidate("cand")
+    ranker.rank_ids(q, {"a", "b", "c"}, limit=1, offset=0, cache_key="cand")
+    assert calls["n"] == 2
