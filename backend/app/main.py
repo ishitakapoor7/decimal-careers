@@ -133,12 +133,21 @@ def upload_resume(
         text = parse_resume(file.filename or "", data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
+    # A file we can't extract any text from (e.g. a scanned/image PDF) is a dead
+    # end for personalization. Signal it explicitly rather than silently storing
+    # an empty candidate and falling back to plain browse.
+    if not text:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not extract any text from the file. It may be a "
+            "scanned image; please upload a text-based PDF or DOCX.",
+        )
     # Mint an opaque ID on first upload; reuse the client's stored one when a
     # returning candidate replaces their resume. Pseudonymous, not authenticated.
     cid = candidate_id or str(uuid.uuid4())
     # Embed once here so the personalized /jobs path (incl. every pagination
     # click) reuses the stored vector instead of re-running the model.
-    vector = state.embedder.encode([text])[0].tobytes() if text else None
+    vector = state.embedder.encode([text])[0].tobytes()
     state.db.insert_candidate(
         Candidate(id=cid, resume_text=text, resume_vector=vector, created_at=_now())
     )

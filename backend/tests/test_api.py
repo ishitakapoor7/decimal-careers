@@ -81,6 +81,25 @@ def test_upload_reuses_supplied_id():
     assert again.json()["candidate_id"] == "keep-me"
 
 
+def test_upload_empty_resume_returns_400():
+    # A valid file we can't extract any text from (e.g. a scanned/image PDF, here
+    # an empty docx) must signal failure, not silently fall back to plain browse.
+    r = client.post(
+        "/upload-resume",
+        files={"file": ("r.docx", _docx(""), _DOCX_MIME)},
+    )
+    assert r.status_code == 400
+
+
+def test_upload_malformed_file_returns_400_not_500():
+    # Corrupt bytes behind a supported extension is user error → clean 400.
+    r = client.post(
+        "/upload-resume",
+        files={"file": ("r.pdf", b"not a real pdf", "application/pdf")},
+    )
+    assert r.status_code == 400
+
+
 def test_personalized_ranking_changes_order():
     up = client.post(
         "/upload-resume",

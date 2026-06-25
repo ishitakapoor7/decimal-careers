@@ -35,3 +35,16 @@ def test_unsupported_extension_raises():
 
 def test_empty_pdf_returns_empty_string_no_crash():
     assert parse_resume("resume.pdf", _empty_pdf_bytes()) == ""
+
+
+def test_malformed_pdf_raises_value_error():
+    # A file named .pdf but holding garbage must surface as a domain ValueError,
+    # not leak pypdf's PdfStreamError (which the API layer wouldn't translate).
+    with pytest.raises(ValueError):
+        parse_resume("resume.pdf", b"this is not a pdf at all")
+
+
+def test_malformed_docx_raises_value_error():
+    # Likewise a fake .docx must not leak zipfile.BadZipFile.
+    with pytest.raises(ValueError):
+        parse_resume("resume.docx", b"this is not a docx at all")
