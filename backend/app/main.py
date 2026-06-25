@@ -65,6 +65,11 @@ def _to_out(job: Job) -> JobOut:
         work_mode=job.work_mode.value,
         skills=job.skills,
         description=job.description,
+        company=job.company,
+        summary=job.summary,
+        salary_min=job.salary_min,
+        salary_max=job.salary_max,
+        posted_date=job.posted_date,
     )
 
 

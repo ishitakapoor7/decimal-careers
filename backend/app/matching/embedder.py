@@ -5,7 +5,10 @@ from app.storage.models import Job
 
 
 def job_to_text(job: Job) -> str:
-    return f"{job.title}. Skills: {', '.join(job.skills)}. {job.description}"
+    # Embed only the role signal — title + skills + the short summary. The full
+    # `description` is display-only boilerplate (company/benefits/EEO) that would
+    # dilute the vector across jobs, so it is deliberately excluded (§3B / §13).
+    return f"{job.title}. Skills: {', '.join(job.skills)}. {job.summary}"
 
 
 class Embedder:

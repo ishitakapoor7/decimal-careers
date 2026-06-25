@@ -13,6 +13,11 @@ class JobOut(BaseModel):
     work_mode: str
     skills: list[str]
     description: str
+    company: str
+    summary: str
+    salary_min: int
+    salary_max: int
+    posted_date: str
 
 
 class JobsPage(BaseModel):

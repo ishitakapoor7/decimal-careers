@@ -1,3 +1,5 @@
+import dataclasses
+
 import numpy as np
 
 from app.matching.embedder import Embedder, job_to_text
@@ -23,12 +25,30 @@ def _job(title: str, skills: list[str], desc: str) -> Job:
         work_mode=WorkMode.REMOTE,
         skills=skills,
         description=desc,
+        company="Acme",
+        summary=desc,
+        salary_min=120_000,
+        salary_max=160_000,
+        posted_date="2026-06-01",
     )
 
 
 def test_job_to_text_includes_title_and_skills():
     text = job_to_text(_job("Backend Engineer", ["Python", "AWS"], "Build APIs"))
     assert "Backend Engineer" in text and "Python" in text and "Build APIs" in text
+
+
+def test_job_to_text_embeds_summary_not_description_boilerplate():
+    # The full JD (with shared company/benefits/EEO boilerplate) must NOT enter
+    # the vector; only the role-specific summary does (§3B / §13).
+    job = dataclasses.replace(
+        _job("Engineer", ["Python"], "x"),
+        summary="distinctive role summary phrase",
+        description="benefits unlimited pto. equal opportunity employer.",
+    )
+    text = job_to_text(job)
+    assert "distinctive role summary phrase" in text
+    assert "equal opportunity" not in text
 
 
 def test_encode_shape_and_normalized():

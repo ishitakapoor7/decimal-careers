@@ -45,6 +45,13 @@ class Job:
     work_mode: WorkMode
     skills: list[str]
     description: str
+    # Multi-company display fields (§3). `summary` is the only one embedded
+    # (via job_to_text); the rest are display-only — see the rich-jd design note.
+    company: str
+    summary: str
+    salary_min: int
+    salary_max: int
+    posted_date: str
 
 
 @dataclass(frozen=True)

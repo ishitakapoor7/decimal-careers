@@ -25,6 +25,11 @@ def make_job(jid: str, team: Team, level: SeniorityLevel, mode: WorkMode) -> Job
         work_mode=mode,
         skills=["Python"],
         description="desc",
+        company="Acme",
+        summary="role summary",
+        salary_min=100_000,
+        salary_max=130_000,
+        posted_date="2026-06-01",
     )
 
 

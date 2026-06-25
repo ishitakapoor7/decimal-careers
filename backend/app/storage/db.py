@@ -42,7 +42,9 @@ class Database:
                     id TEXT PRIMARY KEY, title TEXT, team TEXT, employment_type TEXT,
                     seniority_level TEXT, city TEXT,
                     state_region TEXT, country TEXT, work_mode TEXT,
-                    skills TEXT, description TEXT
+                    skills TEXT, description TEXT,
+                    company TEXT, summary TEXT, salary_min INTEGER,
+                    salary_max INTEGER, posted_date TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_jobs_team ON jobs(team);
                 CREATE INDEX IF NOT EXISTS idx_jobs_level ON jobs(seniority_level);
@@ -62,7 +64,8 @@ class Database:
     def insert_jobs(self, jobs: list[Job]) -> None:
         with self._lock:
             self._conn.executemany(
-                "INSERT OR REPLACE INTO jobs VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                "INSERT OR REPLACE INTO jobs VALUES "
+                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 [
                     (
                         j.id,
@@ -76,6 +79,11 @@ class Database:
                         j.work_mode.value,
                         json.dumps(j.skills),
                         j.description,
+                        j.company,
+                        j.summary,
+                        j.salary_min,
+                        j.salary_max,
+                        j.posted_date,
                     )
                     for j in jobs
                 ],
@@ -95,6 +103,11 @@ class Database:
             work_mode=WorkMode(row["work_mode"]),
             skills=json.loads(row["skills"]),
             description=row["description"],
+            company=row["company"],
+            summary=row["summary"],
+            salary_min=row["salary_min"],
+            salary_max=row["salary_max"],
+            posted_date=row["posted_date"],
         )
 
     def get_job(self, job_id: str) -> Job | None:

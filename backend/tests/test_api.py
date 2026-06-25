@@ -81,6 +81,12 @@ def test_upload_reuses_supplied_id():
     assert again.json()["candidate_id"] == "keep-me"
 
 
+def test_job_response_includes_new_display_fields():
+    item = client.get("/jobs", params={"limit": 1}).json()["items"][0]
+    for key in ("company", "summary", "salary_min", "salary_max", "posted_date"):
+        assert key in item, f"missing {key}"
+
+
 def test_job_response_omits_min_years_exp():
     # min_years_exp was dropped (§2) until the Phase-2 seniority penalty needs it;
     # it must not appear on the wire.

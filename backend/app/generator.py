@@ -1,3 +1,4 @@
+import datetime
 import random
 
 from app.storage.models import (
@@ -8,24 +9,248 @@ from app.storage.models import (
     WorkMode,
 )
 
-_TEAM_SKILLS: dict[Team, list[str]] = {
-    Team.ENGINEERING: ["Python", "Go", "Postgres", "Kubernetes", "React", "AWS"],
-    Team.SALES: ["Salesforce", "Prospecting", "Negotiation", "CRM", "Quota"],
-    Team.PRODUCT: ["Roadmapping", "User Research", "SQL", "A/B Testing", "Figma"],
-    Team.MARKETING: ["SEO", "HubSpot", "Content Strategy", "Analytics", "Email"],
-    Team.DESIGN: ["Figma", "Prototyping", "Design Systems", "User Research", "CSS"],
-    Team.FINANCE: ["Excel", "Modeling", "Forecasting", "GAAP", "SQL"],
-    Team.OPERATIONS: ["Logistics", "Process Design", "SQL", "Vendor Mgmt", "Excel"],
+# Role variants: each team is a family of (title, skill-subpool) sub-specialties.
+# A job picks ONE variant, so its title and skills are internally coherent and
+# the team becomes a set of related sub-clusters (backend vs ML Engineering),
+# which lets a resume match the right *kind* of role, not just the right team.
+_ROLE_VARIANTS: dict[Team, list[tuple[str, list[str]]]] = {
+    Team.ENGINEERING: [
+        ("Backend Engineer", ["Python", "Go", "Postgres", "Redis", "Kubernetes",
+                              "gRPC", "Docker", "REST APIs", "Microservices", "CI/CD"]),
+        ("Frontend Engineer", ["React", "TypeScript", "CSS", "Next.js", "GraphQL",
+                               "Webpack", "Accessibility", "Jest", "Tailwind", "Redux"]),
+        ("Machine Learning Engineer", ["Python", "PyTorch", "LLMs", "Vector Databases",
+                                       "CUDA", "MLflow", "Pandas", "Transformers",
+                                       "Model Serving", "NumPy"]),
+        ("DevOps Engineer", ["Terraform", "AWS", "Kubernetes", "CI/CD", "Prometheus",
+                             "Docker", "Ansible", "Linux", "Observability", "Bash"]),
+        ("Data Engineer", ["Python", "SQL", "Spark", "Airflow", "dbt", "Kafka",
+                           "Snowflake", "ETL", "Data Modeling", "Postgres"]),
+    ],
+    Team.SALES: [
+        ("Account Executive", ["Salesforce", "Prospecting", "Negotiation",
+                               "Pipeline Management", "Closing", "Discovery",
+                               "Quota Attainment", "Forecasting", "CRM"]),
+        ("Sales Development Representative", ["Outbound", "Cold Calling",
+                                             "Lead Qualification", "Salesforce",
+                                             "Email Outreach", "Prospecting",
+                                             "Cadence Tools", "CRM", "Research"]),
+        ("Sales Engineer", ["Solution Selling", "Technical Demos", "Discovery",
+                            "Integrations", "POCs", "Salesforce",
+                            "Stakeholder Management", "Pre-sales", "APIs"]),
+    ],
+    Team.PRODUCT: [
+        ("Product Manager", ["Roadmapping", "User Research", "SQL", "A/B Testing",
+                             "Stakeholder Management", "Prioritization", "Analytics",
+                             "Specs", "Go-to-Market"]),
+        ("Technical Product Manager", ["APIs", "SQL", "System Design", "Roadmapping",
+                                       "Data Analysis", "Experimentation",
+                                       "Stakeholder Management", "Specs", "Platform"]),
+        ("Growth Product Manager", ["Experimentation", "Funnel Analysis", "SQL",
+                                    "A/B Testing", "Retention", "Analytics",
+                                    "Activation", "Roadmapping", "Onboarding"]),
+    ],
+    Team.MARKETING: [
+        ("Content Marketing Manager", ["SEO", "Content Strategy", "Copywriting",
+                                       "Editorial", "Analytics", "CMS", "Storytelling",
+                                       "Email", "Social Media"]),
+        ("Growth Marketer", ["Paid Acquisition", "SEO", "Analytics", "A/B Testing",
+                             "Email", "Funnel Optimization", "HubSpot", "Attribution",
+                             "Landing Pages"]),
+        ("Product Marketing Manager", ["Positioning", "Messaging", "Go-to-Market",
+                                       "Competitive Analysis", "Sales Enablement",
+                                       "Launches", "Analytics", "Research"]),
+    ],
+    Team.DESIGN: [
+        ("Product Designer", ["Figma", "Prototyping", "User Research", "Design Systems",
+                              "Interaction Design", "Wireframing", "Usability Testing",
+                              "Accessibility"]),
+        ("Brand Designer", ["Figma", "Visual Identity", "Typography", "Illustration",
+                            "Brand Systems", "Adobe Creative Suite", "Motion", "Layout"]),
+        ("UX Researcher", ["User Interviews", "Usability Testing", "Survey Design",
+                           "Synthesis", "Personas", "Journey Mapping",
+                           "Qualitative Research", "Data Analysis"]),
+    ],
+    Team.FINANCE: [
+        ("Financial Analyst", ["Excel", "Financial Modeling", "Forecasting",
+                               "Budgeting", "Variance Analysis", "SQL", "GAAP",
+                               "Reporting"]),
+        ("FP&A Manager", ["Financial Modeling", "Forecasting", "Budgeting", "Excel",
+                          "Board Reporting", "Scenario Planning", "SQL", "KPIs"]),
+        ("Accountant", ["GAAP", "Reconciliation", "QuickBooks", "Month-end Close",
+                        "Accounts Payable", "Excel", "Audit", "Compliance"]),
+    ],
+    Team.OPERATIONS: [
+        ("Operations Manager", ["Process Design", "Vendor Management", "Logistics",
+                                "SQL", "Project Management", "KPIs", "Excel",
+                                "Cross-functional"]),
+        ("Business Operations Analyst", ["SQL", "Excel", "Process Improvement",
+                                         "Dashboards", "Analytics",
+                                         "Stakeholder Management", "Reporting",
+                                         "Modeling"]),
+        ("Supply Chain Analyst", ["Logistics", "Inventory Management", "Forecasting",
+                                  "SQL", "Excel", "Vendor Management", "Procurement",
+                                  "Planning"]),
+    ],
 }
-_TITLES: dict[Team, str] = {
-    Team.ENGINEERING: "Software Engineer",
-    Team.SALES: "Account Executive",
-    Team.PRODUCT: "Product Manager",
-    Team.MARKETING: "Marketing Manager",
-    Team.DESIGN: "Product Designer",
-    Team.FINANCE: "Financial Analyst",
-    Team.OPERATIONS: "Operations Manager",
+
+# Embedded role summary (the ONLY generated text that enters the vector). {title}
+# is the variant title; varied phrasing keeps matching from being keyword-trivial.
+_ROLE_SUMMARIES: dict[Team, list[str]] = {
+    Team.ENGINEERING: [
+        "As a {title}, you'll design, build, and operate the systems that power our products at scale.",
+        "We're hiring a {title} to ship reliable, well-tested software and raise the engineering bar.",
+        "Join us as a {title} to own services end-to-end, from design through production.",
+        "As a {title}, you'll partner with product and design to turn ideas into robust features.",
+        "We're looking for a {title} who loves clean code, fast iteration, and hard technical problems.",
+    ],
+    Team.SALES: [
+        "As a {title}, you'll build relationships with prospects and close deals that grow our business.",
+        "We're hiring a {title} to own a pipeline, run discovery, and consistently exceed quota.",
+        "Join us as a {title} to bring our product to new customers and markets.",
+        "As a {title}, you'll partner with prospects to understand their needs and earn their trust.",
+        "We're looking for a {title} who is consultative, resilient, and driven by results.",
+    ],
+    Team.PRODUCT: [
+        "As a {title}, you'll define the roadmap and ship products customers love.",
+        "We're hiring a {title} to turn user insights into prioritized, measurable outcomes.",
+        "Join us as a {title} to partner with engineering and design from idea to launch.",
+        "As a {title}, you'll use data and research to decide what to build and why.",
+        "We're looking for a {title} who balances vision, execution, and ruthless prioritization.",
+    ],
+    Team.MARKETING: [
+        "As a {title}, you'll craft the story and campaigns that grow our audience.",
+        "We're hiring a {title} to drive demand and measurable pipeline.",
+        "Join us as a {title} to own positioning, messaging, and go-to-market.",
+        "As a {title}, you'll blend creativity and analytics to reach the right people.",
+        "We're looking for a {title} who turns data and narrative into growth.",
+    ],
+    Team.DESIGN: [
+        "As a {title}, you'll shape intuitive, beautiful experiences end-to-end.",
+        "We're hiring a {title} to turn complex problems into elegant, usable design.",
+        "Join us as a {title} to partner with product and engineering on the full design process.",
+        "As a {title}, you'll run research, prototype quickly, and sweat the details.",
+        "We're looking for a {title} who pairs strong craft with deep user empathy.",
+    ],
+    Team.FINANCE: [
+        "As a {title}, you'll turn numbers into the insights that guide our decisions.",
+        "We're hiring a {title} to own models, forecasts, and reporting.",
+        "Join us as a {title} to partner with leadership on planning and analysis.",
+        "As a {title}, you'll bring rigor and clarity to our financial operations.",
+        "We're looking for a {title} who is precise, analytical, and business-minded.",
+    ],
+    Team.OPERATIONS: [
+        "As a {title}, you'll design the processes that keep our business running smoothly.",
+        "We're hiring a {title} to drive efficiency across cross-functional operations.",
+        "Join us as a {title} to turn messy problems into scalable systems.",
+        "As a {title}, you'll partner across teams to remove bottlenecks and improve KPIs.",
+        "We're looking for a {title} who is organized, analytical, and execution-focused.",
+    ],
 }
+
+_RESPONSIBILITIES: dict[Team, list[str]] = {
+    Team.ENGINEERING: [
+        "Design, build, and maintain backend and frontend services.",
+        "Write well-tested, maintainable code and review peers' pull requests.",
+        "Collaborate with product and design to scope and deliver features.",
+        "Improve system reliability, observability, and performance.",
+        "Debug production issues and contribute to incident response.",
+        "Mentor other engineers and shape technical direction.",
+    ],
+    Team.SALES: [
+        "Build and manage a pipeline of qualified opportunities.",
+        "Run discovery calls and tailored product demonstrations.",
+        "Negotiate and close deals to meet or exceed quota.",
+        "Partner with marketing and product on customer feedback.",
+        "Maintain accurate forecasts and CRM hygiene.",
+        "Develop relationships with key stakeholders and champions.",
+    ],
+    Team.PRODUCT: [
+        "Define and prioritize the product roadmap.",
+        "Translate user research and data into clear requirements.",
+        "Partner with engineering and design through delivery.",
+        "Define success metrics and measure outcomes.",
+        "Communicate strategy and trade-offs to stakeholders.",
+        "Run experiments and iterate based on results.",
+    ],
+    Team.MARKETING: [
+        "Plan and execute multi-channel campaigns.",
+        "Own content, messaging, and positioning.",
+        "Analyze funnel performance and optimize conversion.",
+        "Partner with sales on enablement and pipeline.",
+        "Manage SEO, email, and social channels.",
+        "Report on growth metrics and attribution.",
+    ],
+    Team.DESIGN: [
+        "Design end-to-end flows from concept to high fidelity.",
+        "Build and maintain components in the design system.",
+        "Run user research and usability testing.",
+        "Prototype and iterate quickly on feedback.",
+        "Partner with engineering on faithful implementation.",
+        "Advocate for accessibility and craft quality.",
+    ],
+    Team.FINANCE: [
+        "Build and maintain financial models and forecasts.",
+        "Own budgeting, variance analysis, and reporting.",
+        "Partner with leadership on planning and scenarios.",
+        "Ensure accuracy and compliance in financial records.",
+        "Prepare board and investor materials.",
+        "Improve financial processes and controls.",
+    ],
+    Team.OPERATIONS: [
+        "Design and improve cross-functional processes.",
+        "Manage vendors, logistics, and procurement.",
+        "Build dashboards and track operational KPIs.",
+        "Identify bottlenecks and drive efficiency.",
+        "Partner across teams to execute key initiatives.",
+        "Document and scale repeatable workflows.",
+    ],
+}
+
+# Multi-company catalog: the platform matches across roles from many companies.
+_COMPANIES: list[tuple[str, str]] = [
+    ("Northwind Labs", "Northwind Labs builds developer tools used by thousands of engineering teams."),
+    ("Volta Logistics", "Volta Logistics is reinventing freight with software-defined supply chains."),
+    ("Lumen Health", "Lumen Health delivers AI-assisted care to millions of patients."),
+    ("Castor Finance", "Castor Finance is a modern platform for treasury and corporate finance."),
+    ("Pixel & Co", "Pixel & Co is a design-led studio crafting beloved consumer brands."),
+    ("Meridian Retail", "Meridian Retail powers omnichannel commerce for global brands."),
+    ("Atlas Robotics", "Atlas Robotics automates warehouses with autonomous systems."),
+    ("Beacon Media", "Beacon Media is a next-generation content and streaming company."),
+    ("Cobalt Security", "Cobalt Security protects enterprises with cloud-native security."),
+    ("Vertex Analytics", "Vertex Analytics turns data into decisions for the Fortune 500."),
+    ("Harbor Bank", "Harbor Bank is a digital-first bank for small businesses."),
+    ("Solstice Energy", "Solstice Energy accelerates the transition to clean power."),
+]
+
+_BENEFITS: list[str] = [
+    "Competitive salary and meaningful equity.",
+    "Comprehensive medical, dental, and vision coverage.",
+    "Unlimited PTO and flexible working hours.",
+    "Annual learning and development budget.",
+    "401(k) with company match.",
+    "Generous parental leave.",
+    "Home office and wellness stipends.",
+    "Daily lunch and a fully stocked kitchen.",
+]
+
+# Heading synonyms — different JDs use different headings (the requested variation).
+_HEADINGS: dict[str, list[str]] = {
+    "about": ["About {company}", "Who we are", "About us"],
+    "responsibilities": ["Key Responsibilities", "What you'll do", "The core work",
+                         "Responsibilities"],
+    "required": ["Requirements", "What we're looking for", "Required Qualifications",
+                 "Must-haves"],
+    "preferred": ["Nice to have", "Bonus points", "Preferred Qualifications", "Pluses"],
+    "benefits": ["Benefits", "Perks & Benefits", "What we offer"],
+}
+
+_EEO = (
+    "{company} is an equal opportunity employer. All qualified applicants will "
+    "receive consideration without regard to race, color, religion, sex, national "
+    "origin, disability, or veteran status."
+)
+
 _LEVEL_PREFIX: dict[SeniorityLevel, str] = {
     SeniorityLevel.INTERN: "Intern,",
     SeniorityLevel.ENTRY: "Junior",
@@ -41,22 +266,86 @@ _LOCATIONS: list[tuple[str, str, str]] = [
     ("Bangalore", "Karnataka", "India"),
     ("Berlin", "Berlin", "Germany"),
 ]
-# Deliberate phrasing variation (the "messiness").
-_PHRASES: list[str] = [
-    "We are looking for a {title} to join our {team} team.",
-    "Join {team} as a {title} and make an impact.",
-    "Our {team} org seeks an experienced {title}.",
-    "{title} wanted — help us scale {team}.",
-]
+
+# Coherent (display-only) salary: base by seniority, scaled by team and country.
+_SENIORITY_BASE: dict[SeniorityLevel, int] = {
+    SeniorityLevel.INTERN: 60_000,
+    SeniorityLevel.ENTRY: 95_000,
+    SeniorityLevel.MID: 140_000,
+    SeniorityLevel.SENIOR: 185_000,
+    SeniorityLevel.STAFF: 240_000,
+}
+_TEAM_MULT: dict[Team, float] = {
+    Team.ENGINEERING: 1.15,
+    Team.FINANCE: 1.10,
+    Team.PRODUCT: 1.10,
+    Team.DESIGN: 1.00,
+    Team.SALES: 1.00,
+    Team.MARKETING: 0.95,
+    Team.OPERATIONS: 0.95,
+}
+_COUNTRY_MULT: dict[str, float] = {"USA": 1.0, "UK": 0.9, "Germany": 0.85, "India": 0.5}
+_POST_ANCHOR = datetime.date(2026, 6, 25)
+
+
+def _article(word: str) -> str:
+    # Vowel-initial titles take "an" (Account, Operations); "U" stays "a" (UX).
+    return "an" if word[:1] in "AEIOaeio" else "a"
+
+
+def _round_5k(x: float) -> int:
+    return int(round(x / 5_000) * 5_000)
+
+
+def _salary(level: SeniorityLevel, team: Team, country: str) -> tuple[int, int]:
+    base = _SENIORITY_BASE[level] * _TEAM_MULT[team] * _COUNTRY_MULT[country]
+    return _round_5k(base), _round_5k(base * 1.3)
+
+
+def _bullets(heading: str, items: list[str]) -> str:
+    return heading + "\n" + "\n".join(f"• {i}" for i in items)
+
+
+def _render_description(
+    company: str,
+    about: str,
+    summary: str,
+    team: Team,
+    required: list[str],
+    preferred: list[str],
+    rng: random.Random,
+) -> str:
+    """Assemble the full, display-only JD with varied headings and sections."""
+    sections: list[str] = []
+    sections.append(f"{rng.choice(_HEADINGS['about']).format(company=company)}\n{about}")
+    sections.append(summary)
+
+    resp_pool = _RESPONSIBILITIES[team]
+    resps = rng.sample(resp_pool, min(rng.randint(3, 5), len(resp_pool)))
+    sections.append(_bullets(rng.choice(_HEADINGS["responsibilities"]), resps))
+
+    sections.append(_bullets(rng.choice(_HEADINGS["required"]), required))
+
+    # Preferred and benefits sometimes omitted, so headings/sections vary per JD.
+    if preferred and rng.random() > 0.2:
+        sections.append(_bullets(rng.choice(_HEADINGS["preferred"]), preferred))
+    if rng.random() > 0.2:
+        bens = rng.sample(_BENEFITS, min(rng.randint(3, 5), len(_BENEFITS)))
+        sections.append(_bullets(rng.choice(_HEADINGS["benefits"]), bens))
+
+    sections.append(_EEO.format(company=company))
+    return "\n\n".join(sections)
 
 
 def generate(n: int, seed: int = 0) -> list[Job]:
     rng = random.Random(seed)
     teams = list(Team)
+    levels = list(SeniorityLevel)
     jobs: list[Job] = []
     for i in range(n):
         team = rng.choice(teams)
-        level = rng.choice(list(SeniorityLevel))
+        base_title, pool = rng.choice(_ROLE_VARIANTS[team])
+        level = rng.choice(levels)
         emp = (
             EmploymentType.INTERNSHIP
             if level == SeniorityLevel.INTERN
@@ -69,16 +358,31 @@ def generate(n: int, seed: int = 0) -> list[Job]:
             )
         )
         city, state, country = rng.choice(_LOCATIONS)
+        work_mode = rng.choice(list(WorkMode))
+
         prefix = _LEVEL_PREFIX[level]
-        base_title = _TITLES[team]
         title = f"{prefix} {base_title}".strip().strip(",").strip()
-        pool = _TEAM_SKILLS[team]
-        k = rng.randint(2, min(4, len(pool)))
-        skills = rng.sample(pool, k)
-        phrase = rng.choice(_PHRASES).format(title=base_title, team=team.value)
-        req = "Required: " + ", ".join(skills[:2])
-        nice = " Nice to have: " + ", ".join(skills[2:]) if len(skills) > 2 else ""
-        description = f"{phrase} {req}.{nice}"
+
+        required = rng.sample(pool, min(rng.randint(2, 3), len(pool)))
+        remaining = [s for s in pool if s not in required]
+        preferred = (
+            rng.sample(remaining, min(rng.randint(3, 5), len(remaining)))
+            if remaining
+            else []
+        )
+        skills = required + preferred
+
+        company, about = rng.choice(_COMPANIES)
+        summary = rng.choice(_ROLE_SUMMARIES[team]).format(title=base_title)
+        summary = summary.replace(
+            f"a {base_title}", f"{_article(base_title)} {base_title}", 1
+        )
+        description = _render_description(
+            company, about, summary, team, required, preferred, rng
+        )
+        salary_min, salary_max = _salary(level, team, country)
+        posted = _POST_ANCHOR - datetime.timedelta(days=rng.randint(0, 60))
+
         jobs.append(
             Job(
                 id=f"job-{seed}-{i}",
@@ -89,9 +393,14 @@ def generate(n: int, seed: int = 0) -> list[Job]:
                 city=city,
                 state_region=state,
                 country=country,
-                work_mode=rng.choice(list(WorkMode)),
+                work_mode=work_mode,
                 skills=skills,
                 description=description,
+                company=company,
+                summary=summary,
+                salary_min=salary_min,
+                salary_max=salary_max,
+                posted_date=posted.isoformat(),
             )
         )
     return jobs

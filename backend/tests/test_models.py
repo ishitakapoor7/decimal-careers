@@ -20,6 +20,11 @@ def test_job_constructs_with_enum_values():
         work_mode=WorkMode.HYBRID,
         skills=["Python", "Postgres"],
         description="Build APIs.",
+        company="Acme",
+        summary="Build APIs as a backend engineer.",
+        salary_min=120_000,
+        salary_max=160_000,
+        posted_date="2026-06-01",
     )
     assert job.team.value == "engineering"
     assert job.work_mode.value == "hybrid"
