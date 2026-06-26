@@ -151,6 +151,28 @@ def test_upload_reuses_supplied_id():
     assert again.json()["candidate_id"] == "keep-me"
 
 
+def test_personalized_ranking_failure_degrades_to_plain_browse():
+    # Personalization is an enhancement, not a hard dependency: if the ranking
+    # layer throws (index / embedder / a future remote vector store), the request
+    # must still serve the catalog (200), not 500.
+    cid = client.post(
+        "/upload-resume",
+        files={"file": ("r.docx", _docx("python backend engineer"), _DOCX_MIME)},
+    ).json()["candidate_id"]
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("vector store unavailable")
+
+    original = _TEST_STATE.ranker.rank_ids
+    _TEST_STATE.ranker.rank_ids = boom  # type: ignore[method-assign]
+    try:
+        r = client.get("/jobs", params={"candidate_id": cid, "limit": 5})
+    finally:
+        _TEST_STATE.ranker.rank_ids = original  # type: ignore[method-assign]
+    assert r.status_code == 200
+    assert len(r.json()["items"]) > 0
+
+
 def test_job_response_includes_new_display_fields():
     item = client.get("/jobs", params={"limit": 1}).json()["items"][0]
     for key in (

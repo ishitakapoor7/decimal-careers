@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -25,6 +26,8 @@ from app.storage.models import (
     Team,
     WorkMode,
 )
+
+logger = logging.getLogger(__name__)
 
 _state: AppState | None = None
 
@@ -113,18 +116,29 @@ def list_jobs(
     )
     candidate = state.db.get_candidate(candidate_id) if candidate_id else None
     if candidate and candidate.resume_text:
-        allowed = state.db.job_ids_matching(filters)
-        # Reuse the vector computed at upload; only re-embed if this candidate
-        # predates the stored-vector column (defensive fallback).
-        if candidate.resume_vector is not None:
-            query = np.frombuffer(candidate.resume_vector, dtype=np.float32)
-        else:
-            query = state.embedder.encode([candidate.resume_text])[0]
-        ids, total = state.ranker.rank_ids(
-            query, allowed, limit, offset, cache_key=candidate_id
-        )
-        items = [_to_out(job) for i in ids if (job := state.db.get_job(i))]
-        return JobsPage(items=items, total=total, limit=limit, offset=offset)
+        try:
+            allowed = state.db.job_ids_matching(filters)
+            # Reuse the vector computed at upload; only re-embed if this candidate
+            # predates the stored-vector column (defensive fallback).
+            if candidate.resume_vector is not None:
+                query = np.frombuffer(candidate.resume_vector, dtype=np.float32)
+            else:
+                query = state.embedder.encode([candidate.resume_text])[0]
+            ids, total = state.ranker.rank_ids(
+                query, allowed, limit, offset, cache_key=candidate_id
+            )
+            items = [_to_out(job) for i in ids if (job := state.db.get_job(i))]
+            return JobsPage(items=items, total=total, limit=limit, offset=offset)
+        except Exception:
+            # Personalization is an enhancement over a working base, not a hard
+            # dependency. If the ranking layer fails (index / embedder / a future
+            # remote vector store), degrade to plain browse instead of 500 — the
+            # catalog still serves. Logged so the failure is visible, not silent.
+            logger.exception(
+                "personalized ranking failed for candidate %s; "
+                "falling back to plain browse",
+                candidate_id,
+            )
     jobs, total = state.db.query_jobs(filters, limit, offset)
     return JobsPage(
         items=[_to_out(j) for j in jobs], total=total, limit=limit, offset=offset
