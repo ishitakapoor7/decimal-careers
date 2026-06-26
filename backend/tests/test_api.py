@@ -53,10 +53,80 @@ def test_upload_resume_then_apply_and_list():
     cid = up.json()["candidate_id"]  # server-minted
     assert cid
     job_id = client.get("/jobs", params={"limit": 1}).json()["items"][0]["id"]
-    ap = client.post("/apply", json={"candidate_id": cid, "job_id": job_id})
+    ap = client.post(
+        "/apply",
+        json={
+            "candidate_id": cid,
+            "job_id": job_id,
+            "name": "Ada Lovelace",
+            "email": "ada@example.com",
+        },
+    )
     assert ap.status_code == 200 and ap.json()["job_id"] == job_id
     apps = client.get("/applications", params={"candidate_id": cid}).json()
     assert any(a["job_id"] == job_id for a in apps["items"])
+
+
+def test_apply_requires_name_and_email():
+    # The apply form's required fields are enforced server-side, not just in the UI.
+    cid = client.post(
+        "/upload-resume",
+        files={"file": ("r.docx", _docx("python backend"), _DOCX_MIME)},
+    ).json()["candidate_id"]
+    job_id = client.get("/jobs", params={"limit": 1}).json()["items"][0]["id"]
+    r = client.post("/apply", json={"candidate_id": cid, "job_id": job_id})
+    assert r.status_code == 422
+
+
+def test_apply_stores_form_inputs():
+    # The whole point of the form: the inputs come back on the applications page.
+    cid = client.post(
+        "/upload-resume",
+        files={"file": ("r.docx", _docx("python backend"), _DOCX_MIME)},
+    ).json()["candidate_id"]
+    job_id = client.get("/jobs", params={"limit": 1}).json()["items"][0]["id"]
+    payload = {
+        "candidate_id": cid,
+        "job_id": job_id,
+        "name": "Grace Hopper",
+        "email": "grace@example.com",
+        "earliest_start": "2026-08",
+        "linkedin": "https://linkedin.com/in/grace",
+        "github": "https://github.com/grace",
+        "other_links": ["https://grace.dev"],
+        "requires_visa": True,
+        "why_company": "I love the matching problem.",
+    }
+    assert client.post("/apply", json=payload).status_code == 200
+    app = client.get("/applications", params={"candidate_id": cid}).json()["items"][0]
+    assert app["name"] == "Grace Hopper"
+    assert app["earliest_start"] == "2026-08"
+    assert app["other_links"] == ["https://grace.dev"]
+    assert app["requires_visa"] is True
+    assert app["why_company"] == "I love the matching problem."
+
+
+def test_save_unsave_and_list():
+    cid = client.post(
+        "/upload-resume",
+        files={"file": ("r.docx", _docx("python backend"), _DOCX_MIME)},
+    ).json()["candidate_id"]
+    job_id = client.get("/jobs", params={"limit": 1}).json()["items"][0]["id"]
+    # Save, then it shows up as a full job on the saved list.
+    assert client.post("/saved", json={"candidate_id": cid, "job_id": job_id}).json() == {"saved": True}
+    saved = client.get("/saved", params={"candidate_id": cid}).json()["items"]
+    assert any(j["id"] == job_id for j in saved)
+    # Saving again is idempotent (no duplicate).
+    client.post("/saved", json={"candidate_id": cid, "job_id": job_id})
+    assert len(client.get("/saved", params={"candidate_id": cid}).json()["items"]) == 1
+    # Unsave removes it.
+    client.delete("/saved", params={"candidate_id": cid, "job_id": job_id})
+    assert client.get("/saved", params={"candidate_id": cid}).json()["items"] == []
+
+
+def test_save_unknown_job_404():
+    r = client.post("/saved", json={"candidate_id": "c1", "job_id": "nope"})
+    assert r.status_code == 404
 
 
 def test_upload_mints_unique_ids():

@@ -7,7 +7,13 @@ import numpy as np
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 
 from app.resume.parser import parse_resume
-from app.schemas import ApplicationOut, ApplyRequest, JobOut, JobsPage
+from app.schemas import (
+    ApplicationOut,
+    ApplyRequest,
+    JobOut,
+    JobsPage,
+    SaveRequest,
+)
 from app.state import AppState
 from app.storage.db import JobFilters
 from app.storage.models import (
@@ -177,6 +183,14 @@ def apply(req: ApplyRequest, state: AppState = Depends(get_state)) -> Applicatio
         job_id=req.job_id,
         status="applied",
         created_at=_now(),
+        name=req.name,
+        email=req.email,
+        earliest_start=req.earliest_start,
+        linkedin=req.linkedin,
+        github=req.github,
+        other_links=req.other_links,
+        requires_visa=req.requires_visa,
+        why_company=req.why_company,
     )
     state.db.insert_application(application)
     return ApplicationOut(**application.__dict__)
@@ -188,3 +202,30 @@ def list_applications(
 ) -> dict[str, list]:
     apps = state.db.list_applications(candidate_id)
     return {"items": [ApplicationOut(**a.__dict__).model_dump() for a in apps]}
+
+
+@app.post("/saved")
+def save_job(req: SaveRequest, state: AppState = Depends(get_state)) -> dict[str, bool]:
+    if state.db.get_job(req.job_id) is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    state.db.save_job(req.candidate_id, req.job_id, _now())
+    return {"saved": True}
+
+
+@app.delete("/saved")
+def unsave_job(
+    candidate_id: str, job_id: str, state: AppState = Depends(get_state)
+) -> dict[str, bool]:
+    # Idempotent: unsaving a job that isn't saved still returns the same state.
+    state.db.unsave_job(candidate_id, job_id)
+    return {"saved": False}
+
+
+@app.get("/saved")
+def list_saved(
+    candidate_id: str, state: AppState = Depends(get_state)
+) -> dict[str, list]:
+    # Return full jobs (not just ids) so the Saved tab renders cards directly.
+    saved = state.db.list_saved(candidate_id)
+    items = [_to_out(job) for s in saved if (job := state.db.get_job(s.job_id))]
+    return {"items": [i.model_dump() for i in items]}

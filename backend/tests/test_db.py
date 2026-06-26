@@ -116,6 +116,37 @@ def test_application_roundtrip():
     assert len(apps) == 1 and apps[0].job_id == "j1"
 
 
+def test_application_form_fields_roundtrip():
+    db = Database()
+    db.init_schema()
+    db.insert_candidate(Candidate(id="c1", resume_text="r", created_at="t"))
+    db.insert_application(
+        Application(
+            id="a1", candidate_id="c1", job_id="j1", status="applied",
+            created_at="t", name="Ada", email="ada@x.com",
+            earliest_start="2026-08", linkedin="li", github="gh",
+            other_links=["https://x.dev"], requires_visa=True,
+            why_company="great team",
+        )
+    )
+    got = db.list_applications("c1")[0]
+    assert got.name == "Ada" and got.requires_visa is True
+    assert got.other_links == ["https://x.dev"]
+    assert got.why_company == "great team"
+
+
+def test_saved_jobs_roundtrip_and_idempotent():
+    db = Database()
+    db.init_schema()
+    db.save_job("c1", "j1", "t1")
+    db.save_job("c1", "j2", "t2")
+    db.save_job("c1", "j1", "t3")  # duplicate save is a no-op
+    saved = db.list_saved("c1")
+    assert {s.job_id for s in saved} == {"j1", "j2"}
+    db.unsave_job("c1", "j1")
+    assert {s.job_id for s in db.list_saved("c1")} == {"j2"}
+
+
 def test_concurrent_writes_are_serialized():
     # The threadpool mirrors how FastAPI runs sync endpoints: many threads
     # share one connection. The lock must keep every write intact.

@@ -8,6 +8,7 @@ from app.storage.models import (
     Candidate,
     EmploymentType,
     Job,
+    SavedJob,
     SeniorityLevel,
     Team,
     WorkMode,
@@ -56,7 +57,14 @@ class Database:
                 );
                 CREATE TABLE IF NOT EXISTS applications (
                     id TEXT PRIMARY KEY, candidate_id TEXT, job_id TEXT,
-                    status TEXT, created_at TEXT
+                    status TEXT, created_at TEXT,
+                    name TEXT, email TEXT, earliest_start TEXT,
+                    linkedin TEXT, github TEXT, other_links TEXT,
+                    requires_visa INTEGER, why_company TEXT
+                );
+                CREATE TABLE IF NOT EXISTS saved_jobs (
+                    candidate_id TEXT, job_id TEXT, created_at TEXT,
+                    PRIMARY KEY (candidate_id, job_id)
                 );
                 """
             )
@@ -218,8 +226,25 @@ class Database:
     def insert_application(self, a: Application) -> None:
         with self._lock:
             self._conn.execute(
-                "INSERT OR REPLACE INTO applications VALUES (?,?,?,?,?)",
-                (a.id, a.candidate_id, a.job_id, a.status, a.created_at),
+                "INSERT OR REPLACE INTO applications (id, candidate_id, job_id, "
+                "status, created_at, name, email, earliest_start, linkedin, "
+                "github, other_links, requires_visa, why_company) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    a.id,
+                    a.candidate_id,
+                    a.job_id,
+                    a.status,
+                    a.created_at,
+                    a.name,
+                    a.email,
+                    a.earliest_start,
+                    a.linkedin,
+                    a.github,
+                    json.dumps(a.other_links),
+                    int(a.requires_visa),
+                    a.why_company,
+                ),
             )
             self._conn.commit()
 
@@ -230,12 +255,57 @@ class Database:
                 "ORDER BY created_at",
                 (candidate_id,),
             ).fetchall()
+        return [self._row_to_application(r) for r in rows]
+
+    def _row_to_application(self, r: sqlite3.Row) -> Application:
+        return Application(
+            id=r["id"],
+            candidate_id=r["candidate_id"],
+            job_id=r["job_id"],
+            status=r["status"],
+            created_at=r["created_at"],
+            name=r["name"] or "",
+            email=r["email"] or "",
+            earliest_start=r["earliest_start"] or "",
+            linkedin=r["linkedin"] or "",
+            github=r["github"] or "",
+            other_links=json.loads(r["other_links"]) if r["other_links"] else [],
+            requires_visa=bool(r["requires_visa"]),
+            why_company=r["why_company"] or "",
+        )
+
+    # --- Saved jobs (bookmarks) ---------------------------------------------
+
+    def save_job(self, candidate_id: str, job_id: str, created_at: str) -> None:
+        # Idempotent: saving an already-saved job is a no-op (PK conflict ignored).
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR IGNORE INTO saved_jobs (candidate_id, job_id, "
+                "created_at) VALUES (?,?,?)",
+                (candidate_id, job_id, created_at),
+            )
+            self._conn.commit()
+
+    def unsave_job(self, candidate_id: str, job_id: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM saved_jobs WHERE candidate_id = ? AND job_id = ?",
+                (candidate_id, job_id),
+            )
+            self._conn.commit()
+
+    def list_saved(self, candidate_id: str) -> list[SavedJob]:
+        # Newest first, mirroring how the Saved tab reads.
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM saved_jobs WHERE candidate_id = ? "
+                "ORDER BY created_at DESC",
+                (candidate_id,),
+            ).fetchall()
         return [
-            Application(
-                id=r["id"],
+            SavedJob(
                 candidate_id=r["candidate_id"],
                 job_id=r["job_id"],
-                status=r["status"],
                 created_at=r["created_at"],
             )
             for r in rows

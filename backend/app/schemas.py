@@ -38,8 +38,31 @@ class ApplicationOut(BaseModel):
     job_id: str
     status: str
     created_at: str
+    name: str = ""
+    email: str = ""
+    earliest_start: str = ""
+    linkedin: str = ""
+    github: str = ""
+    other_links: list[str] = []
+    requires_visa: bool = False
+    why_company: str = ""
 
 
 class ApplyRequest(BaseModel):
+    candidate_id: str
+    job_id: str
+    # Apply-form inputs. name + email are required (a real application needs a
+    # person to reach); the rest are optional.
+    name: str
+    email: str
+    earliest_start: str = ""
+    linkedin: str = ""
+    github: str = ""
+    other_links: list[str] = []
+    requires_visa: bool = False
+    why_company: str = ""
+
+
+class SaveRequest(BaseModel):
     candidate_id: str
     job_id: str

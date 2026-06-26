@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -79,4 +79,24 @@ class Application:
     candidate_id: str
     job_id: str
     status: str
+    created_at: str
+    # Apply-form inputs (the Ashby-style drawer). Optional with defaults so older
+    # rows and tests that omit them still construct. The résumé itself is NOT
+    # duplicated here — it lives on the candidate, linked via candidate_id.
+    name: str = ""
+    email: str = ""
+    earliest_start: str = ""  # e.g. "2026-08"
+    linkedin: str = ""
+    github: str = ""
+    other_links: list[str] = field(default_factory=list)
+    requires_visa: bool = False
+    why_company: str = ""
+
+
+@dataclass(frozen=True)
+class SavedJob:
+    # A bookmark: a candidate's saved job. Tiny store — no body, just the link
+    # and when it was saved. PK is (candidate_id, job_id) so saving is idempotent.
+    candidate_id: str
+    job_id: str
     created_at: str
