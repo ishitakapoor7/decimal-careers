@@ -34,6 +34,14 @@ class Database:
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
+        # WAL lets readers proceed without blocking on a writer (and vice versa),
+        # both across threads in this process and across separate OS processes if
+        # the app is ever run with multiple worker processes against the same
+        # file. Without it, SQLite's default rollback-journal mode takes a
+        # whole-file lock for writes, which can surface as "database is locked"
+        # under concurrent traffic. No-op for ":memory:" (no separate file to
+        # apply WAL to), harmless to set unconditionally.
+        self._conn.execute("PRAGMA journal_mode=WAL")
 
     def init_schema(self) -> None:
         with self._lock:

@@ -1,3 +1,4 @@
+import threading
 from collections import OrderedDict
 from collections.abc import Callable
 
@@ -35,6 +36,14 @@ class Ranker:
         # way. Jobs are static per boot, so only a re-upload (invalidate) stales
         # an entry.
         self._cache: OrderedDict[str, list[tuple[str, float]]] = OrderedDict()
+        # FastAPI's sync endpoints run in a threadpool, so two concurrent requests
+        # (even for different candidates, even with a single worker process) can
+        # call `_search` at the same instant. `OrderedDict.move_to_end`/`popitem`
+        # mutate internal links and are NOT safe under concurrent calls from
+        # separate threads — this lock makes cache reads/writes atomic. It only
+        # guards the dict bookkeeping, not `index.search` itself, so one slow
+        # search doesn't block other candidates' cache hits.
+        self._cache_lock = threading.Lock()
 
     def rank_ids(
         self,
@@ -95,16 +104,23 @@ class Ranker:
     def _search(
         self, query: np.ndarray, cache_key: str | None
     ) -> list[tuple[str, float]]:
-        if cache_key is not None and cache_key in self._cache:
-            self._cache.move_to_end(cache_key)  # LRU touch
-            return self._cache[cache_key]
+        if cache_key is not None:
+            with self._cache_lock:
+                if cache_key in self._cache:
+                    self._cache.move_to_end(cache_key)  # LRU touch
+                    return self._cache[cache_key]
+        # The actual search runs outside the lock: it's the expensive step, and
+        # holding the lock across it would serialize unrelated candidates' cache
+        # hits behind whichever search is currently running.
         ranked = self._index.search(query, self._search_k)
         if cache_key is not None:
-            self._cache[cache_key] = ranked
-            self._cache.move_to_end(cache_key)
-            while len(self._cache) > self._cache_size:
-                self._cache.popitem(last=False)  # evict least-recently-used
+            with self._cache_lock:
+                self._cache[cache_key] = ranked
+                self._cache.move_to_end(cache_key)
+                while len(self._cache) > self._cache_size:
+                    self._cache.popitem(last=False)  # evict least-recently-used
         return ranked
 
     def invalidate(self, cache_key: str) -> None:
-        self._cache.pop(cache_key, None)
+        with self._cache_lock:
+            self._cache.pop(cache_key, None)
