@@ -220,5 +220,8 @@ __marimo__/
 # Project docs (kept local, not committed)
 docs/
 
-# Local SQLite database files
+# Local SQLite database files (incl. WAL-mode sidecar files)
 *.db
+*.db-wal
+*.db-shm
+*.db-journal
