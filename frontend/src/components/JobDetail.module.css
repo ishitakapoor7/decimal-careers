@@ -222,6 +222,12 @@
   background: var(--teal-tint);
   color: var(--teal-text);
 }
+/* Nice-to-have matches are visually secondary so the must-haves read as the
+   stronger, more credible signal. */
+.skillChipPref {
+  background: var(--chip);
+  color: var(--body);
+}
 
 /* Tone-keyed so the callout's color honestly reflects the match strength. */
 .callout_teal {

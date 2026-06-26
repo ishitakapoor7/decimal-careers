@@ -4,10 +4,13 @@ from pydantic import BaseModel
 class FitOut(BaseModel):
     # Calibrated fit, present only on the personalized /jobs path. The raw score is
     # deliberately NOT exposed (avoids false precision); the frontend renders the
-    # tier + reasons. matched_skills powers the positive "matches these skills" chip.
+    # tier + reasons. The matched skills are split into must-have vs nice-to-have so
+    # the UI can weight required hits — matching only nice-to-haves must not look the
+    # same as matching the must-haves.
     tier: str
     reasons: list[str] = []
-    matched_skills: list[str] = []
+    matched_required: list[str] = []
+    matched_preferred: list[str] = []
 
 
 class JobOut(BaseModel):
@@ -21,6 +24,7 @@ class JobOut(BaseModel):
     country: str
     work_mode: str
     skills: list[str]
+    required_skills: list[str] = []
     company: str
     company_about: str
     summary: str

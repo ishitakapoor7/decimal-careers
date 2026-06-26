@@ -128,29 +128,38 @@ export function JobDetail({
               <span className={styles.matchDot} />
               {match.label} for your résumé
             </div>
-            {(() => {
-              // Reasons are penalty explanations (seniority/education caveats); the
-              // positive skill overlap is shown as chips below, so drop its sentence.
-              const notes = (match.reasons ?? []).filter(
-                (r) => !r.toLowerCase().startsWith("matches "),
-              );
-              return notes.length > 0 ? (
-                <ul className={styles.reasonList}>
-                  {notes.map((r, i) => (
-                    <li className={styles.reason} key={i}>
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className={styles.matchBody}>{MATCH_BODY[match.tone]}</p>
-              );
-            })()}
-            {match.matchedSkills && match.matchedSkills.length > 0 && (
+            {/* Reasons are penalty explanations (seniority/education caveats); the
+                positive skill overlap is carried separately as chips below. */}
+            {match.reasons && match.reasons.length > 0 ? (
+              <ul className={styles.reasonList}>
+                {match.reasons.map((r, i) => (
+                  <li className={styles.reason} key={i}>
+                    {r}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.matchBody}>{MATCH_BODY[match.tone]}</p>
+            )}
+            {match.matchedRequired && match.matchedRequired.length > 0 && (
               <div className={styles.skillChips}>
-                <span className={styles.skillLabel}>Matches</span>
-                {match.matchedSkills.map((s) => (
+                <span className={styles.skillLabel}>
+                  {job.required_skills.length > 0
+                    ? `Must-haves you match · ${match.matchedRequired.length} of ${job.required_skills.length}`
+                    : "Skills you match"}
+                </span>
+                {match.matchedRequired.map((s) => (
                   <span className={styles.skillChip} key={s}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
+            {match.matchedPreferred && match.matchedPreferred.length > 0 && (
+              <div className={styles.skillChips}>
+                <span className={styles.skillLabel}>Nice-to-haves you match</span>
+                {match.matchedPreferred.map((s) => (
+                  <span className={`${styles.skillChip} ${styles.skillChipPref}`} key={s}>
                     {s}
                   </span>
                 ))}

@@ -1,11 +1,13 @@
 // Wire types mirroring backend/app/schemas.py. Keep these in sync with the API.
 
 // Calibrated fit, present only on personalized results. tier drives the label;
-// reasons explain any penalty; matched_skills are the positive skill overlap.
+// reasons explain any penalty; the matched skills are split into must-have vs
+// nice-to-have so the UI can weight required hits.
 export interface Fit {
   tier: string;
   reasons: string[];
-  matched_skills: string[];
+  matched_required: string[];
+  matched_preferred: string[];
 }
 
 export interface Job {
@@ -19,6 +21,7 @@ export interface Job {
   country: string;
   work_mode: string;
   skills: string[];
+  required_skills: string[];
   company: string;
   company_about: string;
   summary: string;

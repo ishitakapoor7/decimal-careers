@@ -193,6 +193,11 @@ def test_personalized_response_carries_fit_tier():
     assert items
     assert all(it["fit"] is not None for it in items)
     assert all(it["fit"]["tier"] in {"strong", "good", "possible"} for it in items)
+    # Skill matches travel split into must-have vs nice-to-have, and the résumé's
+    # real skills (Python/Postgres/Go) match at least one role's listed skills.
+    fits = [it["fit"] for it in items]
+    assert all("matched_required" in f and "matched_preferred" in f for f in fits)
+    assert any(f["matched_required"] or f["matched_preferred"] for f in fits)
 
 
 def test_overqualified_resume_is_not_strong_on_intern_roles():

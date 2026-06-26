@@ -46,7 +46,8 @@ class Database:
                     skills TEXT, company TEXT, company_about TEXT,
                     summary TEXT, about_role TEXT, responsibilities TEXT,
                     required_quals TEXT, preferred_quals TEXT, benefits TEXT,
-                    salary_min INTEGER, salary_max INTEGER, posted_date TEXT
+                    salary_min INTEGER, salary_max INTEGER, posted_date TEXT,
+                    required_skills TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_jobs_team ON jobs(team);
                 CREATE INDEX IF NOT EXISTS idx_jobs_level ON jobs(seniority_level);
@@ -78,6 +79,7 @@ class Database:
         additions = {
             "applications": [("resume_name", "TEXT")],
             "candidates": [("resume_vector", "BLOB"), ("profile", "TEXT")],
+            "jobs": [("required_skills", "TEXT")],
         }
         for table, columns in additions.items():
             existing = {
@@ -94,7 +96,7 @@ class Database:
         with self._lock:
             self._conn.executemany(
                 "INSERT OR REPLACE INTO jobs VALUES "
-                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 [
                     (
                         j.id,
@@ -118,6 +120,7 @@ class Database:
                         j.salary_min,
                         j.salary_max,
                         j.posted_date,
+                        json.dumps(j.required_skills),
                     )
                     for j in jobs
                 ],
@@ -147,6 +150,11 @@ class Database:
             salary_min=row["salary_min"],
             salary_max=row["salary_max"],
             posted_date=row["posted_date"],
+            # NULL for rows written before the column existed → no required/preferred
+            # split (skill_overlap then treats all matches as preferred).
+            required_skills=(
+                json.loads(row["required_skills"]) if row["required_skills"] else []
+            ),
         )
 
     def get_job(self, job_id: str) -> Job | None:
