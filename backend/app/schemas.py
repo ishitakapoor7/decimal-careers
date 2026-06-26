@@ -46,6 +46,7 @@ class ApplicationOut(BaseModel):
     other_links: list[str] = []
     requires_visa: bool = False
     why_company: str = ""
+    resume_name: str = ""
 
 
 class ApplyRequest(BaseModel):
@@ -61,6 +62,8 @@ class ApplyRequest(BaseModel):
     other_links: list[str] = []
     requires_visa: bool = False
     why_company: str = ""
+    # Filename of the résumé submitted with this application (record only).
+    resume_name: str = ""
 
 
 class SaveRequest(BaseModel):

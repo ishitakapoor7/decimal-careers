@@ -96,6 +96,7 @@ def test_apply_stores_form_inputs():
         "other_links": ["https://grace.dev"],
         "requires_visa": True,
         "why_company": "I love the matching problem.",
+        "resume_name": "grace_tailored.pdf",
     }
     assert client.post("/apply", json=payload).status_code == 200
     app = client.get("/applications", params={"candidate_id": cid}).json()["items"][0]
@@ -104,6 +105,7 @@ def test_apply_stores_form_inputs():
     assert app["other_links"] == ["https://grace.dev"]
     assert app["requires_visa"] is True
     assert app["why_company"] == "I love the matching problem."
+    assert app["resume_name"] == "grace_tailored.pdf"
 
 
 def test_save_unsave_and_list():

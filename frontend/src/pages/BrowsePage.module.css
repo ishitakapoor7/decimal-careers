@@ -1,0 +1,112 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  width: 560px;
+  flex-shrink: 0;
+  background: var(--cream);
+  min-height: 0;
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  padding: 20px 22px;
+}
+
+.inlineError {
+  padding: 11px 14px;
+  border-radius: 11px;
+  background: #fdece5;
+  color: #b23a17;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.stateBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: 40px;
+  padding: 32px;
+  text-align: center;
+  color: var(--muted);
+}
+.emptyTitle {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 18px;
+  color: var(--ink);
+}
+.emptySub {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted-2);
+}
+.retry {
+  margin-top: 6px;
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--coral-dark);
+}
+.retry:hover {
+  border-color: var(--coral);
+}
+
+.detailEmpty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  color: var(--faint);
+  font-size: 15px;
+}
+
+.skeletonWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+}
+.skeleton {
+  height: 132px;
+  border-radius: var(--radius-card);
+  background: linear-gradient(
+    100deg,
+    #f4eee6 30%,
+    #faf6f0 50%,
+    #f4eee6 70%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.3s ease-in-out infinite;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}

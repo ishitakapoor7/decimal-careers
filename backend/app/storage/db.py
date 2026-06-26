@@ -60,7 +60,7 @@ class Database:
                     status TEXT, created_at TEXT,
                     name TEXT, email TEXT, earliest_start TEXT,
                     linkedin TEXT, github TEXT, other_links TEXT,
-                    requires_visa INTEGER, why_company TEXT
+                    requires_visa INTEGER, why_company TEXT, resume_name TEXT
                 );
                 CREATE TABLE IF NOT EXISTS saved_jobs (
                     candidate_id TEXT, job_id TEXT, created_at TEXT,
@@ -68,7 +68,26 @@ class Database:
                 );
                 """
             )
+            self._migrate()
             self._conn.commit()
+
+    def _migrate(self) -> None:
+        # CREATE TABLE IF NOT EXISTS never alters an existing table, so columns
+        # added after a DB file was first created must be backfilled here.
+        # Each entry is idempotent: add the column only when it's absent.
+        additions = {
+            "applications": [("resume_name", "TEXT")],
+        }
+        for table, columns in additions.items():
+            existing = {
+                row["name"]
+                for row in self._conn.execute(f"PRAGMA table_info({table})")
+            }
+            for name, decl in columns:
+                if name not in existing:
+                    self._conn.execute(
+                        f"ALTER TABLE {table} ADD COLUMN {name} {decl}"
+                    )
 
     def insert_jobs(self, jobs: list[Job]) -> None:
         with self._lock:
@@ -228,8 +247,8 @@ class Database:
             self._conn.execute(
                 "INSERT OR REPLACE INTO applications (id, candidate_id, job_id, "
                 "status, created_at, name, email, earliest_start, linkedin, "
-                "github, other_links, requires_visa, why_company) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "github, other_links, requires_visa, why_company, resume_name) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (
                     a.id,
                     a.candidate_id,
@@ -244,6 +263,7 @@ class Database:
                     json.dumps(a.other_links),
                     int(a.requires_visa),
                     a.why_company,
+                    a.resume_name,
                 ),
             )
             self._conn.commit()
@@ -272,6 +292,7 @@ class Database:
             other_links=json.loads(r["other_links"]) if r["other_links"] else [],
             requires_visa=bool(r["requires_visa"]),
             why_company=r["why_company"] or "",
+            resume_name=r["resume_name"] or "",
         )
 
     # --- Saved jobs (bookmarks) ---------------------------------------------

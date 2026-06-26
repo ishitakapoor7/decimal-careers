@@ -1,0 +1,118 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: 100%;
+  padding: 18px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  transition:
+    border-color 0.14s ease,
+    box-shadow 0.14s ease,
+    transform 0.14s ease;
+}
+.card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+.selected {
+  border: 1.5px solid var(--coral);
+  box-shadow: 0 4px 16px var(--coral-shadow);
+}
+.selected:hover {
+  border-color: var(--coral);
+}
+
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+.title {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.heart {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--icon-muted);
+  transition: color 0.12s ease;
+}
+.heart:hover {
+  color: var(--coral);
+}
+.heartSaved {
+  color: var(--coral);
+}
+
+.meta {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted-2);
+}
+
+.tags {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+.salary {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.summary {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.matchRow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 3px;
+  padding-top: 11px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.dot_teal {
+  background: var(--teal);
+}
+.dot_gold {
+  background: var(--gold);
+}
+.dot_neutral {
+  background: var(--faint);
+}
+.matchLabel {
+  font-weight: 600;
+}
+.m_teal {
+  color: var(--teal-text);
+}
+.m_gold {
+  color: var(--gold-text);
+}
+.m_neutral {
+  color: var(--muted);
+}
+.matchSub {
+  color: var(--faint);
+}

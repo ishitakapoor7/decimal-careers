@@ -1,0 +1,119 @@
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  flex-shrink: 0;
+  padding: 0 32px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--border);
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.count {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.dropdown {
+  position: relative;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: border-color 0.12s ease;
+}
+.pill:hover {
+  border-color: var(--muted-2);
+}
+.pillActive {
+  background: var(--coral-tint);
+  border-color: var(--coral);
+  color: var(--coral-dark);
+  font-weight: 600;
+}
+.chev {
+  color: var(--faint);
+}
+.pillActive .chev {
+  color: var(--coral-dark);
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 30;
+  min-width: 200px;
+  padding: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--body);
+  text-align: left;
+}
+.menuItem:hover {
+  background: var(--cream);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  border: 1.5px solid var(--border-strong);
+}
+.checkOn {
+  background: var(--coral);
+  border-color: var(--coral);
+}
+
+.clearItem {
+  margin-top: 4px;
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 9px 9px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--coral-dark);
+  text-align: left;
+}
+.clearItem:hover {
+  background: var(--coral-tint);
+}

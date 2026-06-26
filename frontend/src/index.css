@@ -1,0 +1,119 @@
+/* Design tokens — extracted verbatim from the "Warm candidate-first" Paper
+   artboards so the build matches the approved design pixel-for-pixel. */
+:root {
+  /* Surfaces */
+  --cream: #faf6f0;
+  --surface: #ffffff;
+  --border: #ece4d8;
+  --border-strong: #e3d9cc;
+
+  /* Coral accent */
+  --coral: #e8663f;
+  --coral-dark: #c24b26;
+  --coral-tint: #fcede7;
+  --coral-soft-border: #e8a98f;
+  --coral-shadow: rgba(232, 102, 63, 0.1);
+
+  /* Text */
+  --ink: #2b2622;
+  --body: #574e44;
+  --muted: #6e6457;
+  --muted-2: #8a7f73;
+  --faint: #b5ac9e;
+  --label: #a89b89;
+  --icon-muted: #c9beaf;
+
+  /* Status / tag colors */
+  --teal: #2bb3a3;
+  --teal-text: #1f8c7f;
+  --teal-tint: #e6f5f2;
+  --gold: #d9a05b;
+  --gold-text: #b07a3d;
+  --gold-tint: #fbf1e8;
+  --pink-text: #b0436b;
+  --pink-tint: #fbe9ee;
+  --chip: #f3eee7;
+
+  --shadow-card: 0 1px 3px rgba(43, 38, 34, 0.05);
+  --shadow-soft: 0 8px 30px rgba(43, 38, 34, 0.08);
+
+  --serif: "Fraunces", Georgia, serif;
+  --sans: "Figtree", system-ui, -apple-system, sans-serif;
+
+  --radius-card: 16px;
+  --radius-lg: 18px;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-synthesis: none;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-family: var(--serif);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* A tasteful focus ring for keyboard users; coral to match the brand. */
+:focus-visible {
+  outline: 2px solid var(--coral);
+  outline-offset: 2px;
+}
+
+/* Thin, warm scrollbars so the master/detail panes don't show heavy OS bars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}

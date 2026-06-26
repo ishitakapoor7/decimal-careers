@@ -24,7 +24,13 @@ class AppState:
         # diverge from the DB (caveat §0 — old code regenerated at boot and left
         # orphan rows that browse could see but personalization could not rank).
         self.index = build_index(db.all_jobs(), embedder)
-        self.ranker = Ranker(self.index)
+        # Relevance cutoff for personalized ranking: drop roles scoring below
+        # 65% of the candidate's strongest match (with a 0.30 absolute floor).
+        # Calibrated from the seeded catalog's score distributions — for a SWE
+        # résumé every engineering role scores ≥0.56 while the best unrelated
+        # role is ~0.48, so this removes clearly-unrelated teams while keeping
+        # genuinely adjacent ones (e.g. product for a marketing résumé). Tunable.
+        self.ranker = Ranker(self.index, rel_ratio=0.65, abs_floor=0.30)
 
     @classmethod
     def seeded(

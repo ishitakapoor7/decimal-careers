@@ -1,0 +1,32 @@
+.tag {
+  display: inline-flex;
+  align-items: center;
+  height: 23px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.neutral {
+  background: var(--chip);
+  color: var(--muted);
+}
+.teal {
+  background: var(--teal-tint);
+  color: var(--teal-text);
+}
+.gold {
+  background: var(--gold-tint);
+  color: var(--gold-text);
+}
+.pink {
+  background: var(--pink-tint);
+  color: var(--pink-text);
+}
+.coral {
+  background: var(--coral-tint);
+  color: var(--coral-dark);
+}

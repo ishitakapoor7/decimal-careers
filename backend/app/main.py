@@ -205,6 +205,7 @@ def apply(req: ApplyRequest, state: AppState = Depends(get_state)) -> Applicatio
         other_links=req.other_links,
         requires_visa=req.requires_visa,
         why_company=req.why_company,
+        resume_name=req.resume_name,
     )
     state.db.insert_application(application)
     return ApplicationOut(**application.__dict__)

@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.vite
+.DS_Store
+
+# TypeScript incremental build cache (regenerated on build)
+*.tsbuildinfo

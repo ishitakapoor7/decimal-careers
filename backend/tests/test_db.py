@@ -126,13 +126,14 @@ def test_application_form_fields_roundtrip():
             created_at="t", name="Ada", email="ada@x.com",
             earliest_start="2026-08", linkedin="li", github="gh",
             other_links=["https://x.dev"], requires_visa=True,
-            why_company="great team",
+            why_company="great team", resume_name="ada_backend.pdf",
         )
     )
     got = db.list_applications("c1")[0]
     assert got.name == "Ada" and got.requires_visa is True
     assert got.other_links == ["https://x.dev"]
     assert got.why_company == "great team"
+    assert got.resume_name == "ada_backend.pdf"
 
 
 def test_saved_jobs_roundtrip_and_idempotent():

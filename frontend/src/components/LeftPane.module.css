@@ -1,0 +1,169 @@
+/* Shared styles for the left-column extras: upload prompt, personalized
+   banner, and pagination footer. */
+
+.uploadCard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: var(--coral-tint);
+  border: 1.5px dashed var(--coral-soft-border);
+  border-radius: var(--radius-lg);
+}
+.uploadIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: var(--coral);
+  color: #fff;
+}
+.uploadText {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+.uploadTitle {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.uploadSub {
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--muted-2);
+}
+.chooseFile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  padding: 0 18px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  transition: filter 0.15s ease;
+}
+.chooseFile:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+.chooseFile:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/* Personalized banner */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--teal-tint);
+  border-radius: var(--radius-lg);
+}
+.bannerCheck {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--teal);
+  color: #fff;
+}
+.bannerText {
+  flex: 1;
+  min-width: 0;
+}
+.bannerTitle {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+  color: #1d5e57;
+}
+.bannerSub {
+  font-size: 13px;
+  color: #3f7a72;
+}
+.startOver {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 16px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid #bfe3dd;
+  background: var(--surface);
+  color: var(--teal-text);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.12s ease;
+}
+.startOver:hover {
+  background: #f3fbf9;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--cream);
+  border-top: 1px solid var(--border);
+}
+.range {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--faint);
+}
+.pageBtns {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.pageNav,
+.pageNum {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.pageNav {
+  color: var(--muted-2);
+}
+.pageNav:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.pageNum:hover,
+.pageNav:not(:disabled):hover {
+  border-color: var(--muted-2);
+}
+.pageOn {
+  background: var(--coral);
+  border-color: var(--coral);
+  color: #fff;
+  font-weight: 600;
+}
+.pageOn:hover {
+  border-color: var(--coral);
+}

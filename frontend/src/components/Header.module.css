@@ -1,0 +1,82 @@
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 68px;
+  flex-shrink: 0;
+  padding: 0 32px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.logoMark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--coral);
+  flex-shrink: 0;
+}
+
+.wordmark {
+  font-family: var(--serif);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.sub {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--faint);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.navLink:hover {
+  color: var(--ink);
+}
+.navLink svg {
+  color: var(--muted-2);
+}
+
+.uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--coral);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  transition: filter 0.15s ease;
+}
+.uploadBtn:hover {
+  filter: brightness(1.05);
+}
+.uploadBtn svg {
+  color: #fff;
+}

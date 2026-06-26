@@ -91,6 +91,10 @@ class Application:
     other_links: list[str] = field(default_factory=list)
     requires_visa: bool = False
     why_company: str = ""
+    # Filename of the résumé this application was submitted with. A record only
+    # (what they applied with) — the file is not parsed or embedded here, and an
+    # application-specific résumé never alters the candidate's ranking résumé.
+    resume_name: str = ""
 
 
 @dataclass(frozen=True)
