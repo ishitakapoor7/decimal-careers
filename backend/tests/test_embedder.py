@@ -12,7 +12,7 @@ from app.storage.models import (
 )
 
 
-def _job(title: str, skills: list[str], desc: str) -> Job:
+def _job(title: str, skills: list[str], summary: str) -> Job:
     return Job(
         id="j",
         title=title,
@@ -24,9 +24,14 @@ def _job(title: str, skills: list[str], desc: str) -> Job:
         country="USA",
         work_mode=WorkMode.REMOTE,
         skills=skills,
-        description=desc,
         company="Acme",
-        summary=desc,
+        company_about="Acme builds things.",
+        summary=summary,
+        about_role=f"{summary} You'll do great work.",
+        responsibilities=["Build and ship services."],
+        required_quals=["You have 3+ years of experience.", "You know the stack."],
+        preferred_quals=["Bonus points if you've shipped at scale."],
+        benefits=["Competitive salary."],
         salary_min=120_000,
         salary_max=160_000,
         posted_date="2026-06-01",
@@ -38,16 +43,19 @@ def test_job_to_text_includes_title_and_skills():
     assert "Backend Engineer" in text and "Python" in text and "Build APIs" in text
 
 
-def test_job_to_text_embeds_summary_not_description_boilerplate():
-    # The full JD (with shared company/benefits/EEO boilerplate) must NOT enter
-    # the vector; only the role-specific summary does (§3B / §13).
+def test_job_to_text_embeds_summary_not_prose_qualifications():
+    # The display prose (responsibilities, required/preferred quals, benefits) must
+    # NOT enter the vector; only the role-specific summary does (§3B / §13). This is
+    # what lets the JD read like a real posting without diluting matching.
     job = dataclasses.replace(
-        _job("Engineer", ["Python"], "x"),
-        summary="distinctive role summary phrase",
-        description="benefits unlimited pto. equal opportunity employer.",
+        _job("Engineer", ["Python"], "distinctive role summary phrase"),
+        required_quals=["You have eight billion years of niche experience."],
+        preferred_quals=["Bonus points for unlimited pto enjoyment."],
+        benefits=["Equal opportunity employer with free kombucha."],
     )
     text = job_to_text(job)
     assert "distinctive role summary phrase" in text
+    assert "eight billion years" not in text
     assert "equal opportunity" not in text
 
 

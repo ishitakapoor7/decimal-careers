@@ -50,7 +50,43 @@ def test_summary_articles_are_grammatical():
         assert " a Operations" not in j.summary
 
 
-def test_description_is_multi_section():
+def _are_sentences(items: list[str]) -> bool:
+    return all(s.endswith(".") and " " in s.strip() for s in items)
+
+
+def test_qualifications_are_prose_sentences_not_bare_skills():
+    # Required/preferred qualifications must read as full sentences (Reducto-style),
+    # not bare skill words — the frontend shows prose, not skill pills.
     j = generate(5, seed=6)[0]
-    assert j.description.count("\n") >= 3  # multiple sections / bullets
-    assert len(j.description) > len(j.summary) * 3  # full JD >> embedded summary
+    assert len(j.required_quals) >= 2 and _are_sentences(j.required_quals)
+    assert len(j.preferred_quals) >= 1 and _are_sentences(j.preferred_quals)
+
+
+def test_qualification_sentences_mention_the_skills():
+    # Skill names still appear verbatim inside the prose, so the JD stays concrete
+    # and scannable even without pills.
+    j = generate(20, seed=6)[3]
+    req_text = " ".join(j.required_quals)
+    pref_text = " ".join(j.preferred_quals)
+    assert any(skill in req_text for skill in j.skills)
+    assert any(skill in pref_text for skill in j.skills)
+
+
+def test_about_role_is_a_paragraph():
+    j = generate(5, seed=6)[0]
+    assert j.about_role.count(".") >= 2  # more than one sentence
+    assert len(j.about_role) > len(j.summary)
+
+
+def test_structured_jd_sections_are_populated():
+    j = generate(5, seed=6)[0]
+    assert j.responsibilities and _are_sentences(j.responsibilities)
+    assert j.benefits and _are_sentences(j.benefits)
+    assert j.company_about and isinstance(j.company_about, str)
+
+
+def test_job_no_longer_carries_description_blob():
+    # The single description string is replaced by structured fields the frontend
+    # styles section-by-section.
+    j = generate(5, seed=6)[0]
+    assert not hasattr(j, "description")

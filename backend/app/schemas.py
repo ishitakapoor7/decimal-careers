@@ -12,9 +12,14 @@ class JobOut(BaseModel):
     country: str
     work_mode: str
     skills: list[str]
-    description: str
     company: str
+    company_about: str
     summary: str
+    about_role: str
+    responsibilities: list[str]
+    required_quals: list[str]
+    preferred_quals: list[str]
+    benefits: list[str]
     salary_min: int
     salary_max: int
     posted_date: str

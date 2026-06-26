@@ -234,22 +234,118 @@ _BENEFITS: list[str] = [
     "Daily lunch and a fully stocked kitchen.",
 ]
 
-# Heading synonyms — different JDs use different headings (the requested variation).
-_HEADINGS: dict[str, list[str]] = {
-    "about": ["About {company}", "Who we are", "About us"],
-    "responsibilities": ["Key Responsibilities", "What you'll do", "The core work",
-                         "Responsibilities"],
-    "required": ["Requirements", "What we're looking for", "Required Qualifications",
-                 "Must-haves"],
-    "preferred": ["Nice to have", "Bonus points", "Preferred Qualifications", "Pluses"],
-    "benefits": ["Benefits", "Perks & Benefits", "What we offer"],
+# --- Prose qualification pools -------------------------------------------------
+# Qualifications render as full sentences, not bare skill words. Skill NAMES are
+# still woven in verbatim (so the JD stays concrete and scannable), but the vector
+# never sees this prose — only `summary` + `skills` are embedded.
+
+# Domain phrase that fits grammatically after "experience ...".
+_TEAM_DOMAIN: dict[Team, str] = {
+    Team.ENGINEERING: "building production software",
+    Team.SALES: "selling B2B software",
+    Team.PRODUCT: "shipping product",
+    Team.MARKETING: "driving growth marketing",
+    Team.DESIGN: "designing digital products",
+    Team.FINANCE: "in finance or analytics",
+    Team.OPERATIONS: "running business operations",
 }
 
-_EEO = (
-    "{company} is an equal opportunity employer. All qualified applicants will "
-    "receive consideration without regard to race, color, religion, sex, national "
-    "origin, disability, or veteran status."
-)
+# Experience line, keyed to seniority. Display-only — does NOT reintroduce a
+# filterable min_years_exp; the years are derived from seniority_level for reading.
+_EXPERIENCE_LINE: dict[SeniorityLevel, str] = {
+    SeniorityLevel.INTERN: "You're pursuing a degree and eager to get hands-on experience {domain}.",
+    SeniorityLevel.ENTRY: "You have 0–2 years of experience {domain}.",
+    SeniorityLevel.MID: "You have 3+ years of hands-on experience {domain}.",
+    SeniorityLevel.SENIOR: "You have 5+ years of experience {domain} and can operate independently.",
+    SeniorityLevel.STAFF: "You have 8+ years of experience {domain} and a track record of leading complex initiatives.",
+}
+
+# Frames that weave the {skills} phrase into a sentence (required vs. preferred).
+_SKILL_FRAMES: list[str] = [
+    "You're proficient in {skills}.",
+    "You have strong hands-on experience with {skills}.",
+    "You're comfortable working across {skills}.",
+    "You know your way around {skills}.",
+]
+_BONUS_FRAMES: list[str] = [
+    "Bonus points if you've worked with {skills}.",
+    "Familiarity with {skills} is a plus.",
+    "Nice to have: exposure to {skills}.",
+    "Experience with {skills} will help you hit the ground running.",
+]
+
+# Per-team disposition line — the "Philosophy/Approach" flavor that makes a JD read
+# hand-written rather than templated.
+_DISPOSITION: dict[Team, list[str]] = {
+    Team.ENGINEERING: [
+        "You write clean, well-tested code and care about reliability.",
+        "You enjoy hard technical problems and fast iteration.",
+        "You take ownership of services end-to-end.",
+        "You communicate clearly and review others' work thoughtfully.",
+        "You raise the engineering bar wherever you work.",
+    ],
+    Team.SALES: [
+        "You're consultative, resilient, and motivated by hitting targets.",
+        "You build trust quickly with prospects and stakeholders.",
+        "You're organized and keep a clean pipeline.",
+        "You stay genuinely curious about customers' problems.",
+        "You thrive on ownership and accountability to a number.",
+    ],
+    Team.PRODUCT: [
+        "You balance vision, execution, and ruthless prioritization.",
+        "You let data and user research guide your decisions.",
+        "You communicate strategy and trade-offs clearly.",
+        "You partner closely with engineering and design.",
+        "You sweat the details that make products great.",
+    ],
+    Team.MARKETING: [
+        "You blend creativity with a sharp analytical edge.",
+        "You turn data and narrative into measurable growth.",
+        "You move fast and test relentlessly.",
+        "You write clearly and persuasively.",
+        "You care about the full funnel, not just the top.",
+    ],
+    Team.DESIGN: [
+        "You pair strong craft with deep user empathy.",
+        "You prototype quickly and iterate on feedback.",
+        "You sweat the details and care about accessibility.",
+        "You communicate design decisions with clarity.",
+        "You raise the quality bar across the team.",
+    ],
+    Team.FINANCE: [
+        "You're precise, analytical, and business-minded.",
+        "You bring rigor and clarity to ambiguous problems.",
+        "You can explain insights to non-financial partners.",
+        "You're comfortable owning models end-to-end.",
+        "You care about accuracy and the details.",
+    ],
+    Team.OPERATIONS: [
+        "You're organized, analytical, and execution-focused.",
+        "You turn messy problems into repeatable systems.",
+        "You partner well across functions.",
+        "You're comfortable owning ambiguous, cross-functional work.",
+        "You care about measurable outcomes.",
+    ],
+}
+
+# Generic aspirational closer for the "nice to have" section.
+_ASPIRATIONAL: list[str] = [
+    "You keep up with the latest developments in your field.",
+    "You've thrived in a fast-paced, early-stage environment.",
+    "You bring high agency and a bias for action.",
+    "You care about doing great work with great people.",
+]
+
+# Second sentence of the "About the role" paragraph, per team.
+_ROLE_ELABORATION: dict[Team, str] = {
+    Team.ENGINEERING: "You'll partner with product and design to ship reliable, well-tested features that scale.",
+    Team.SALES: "You'll own a pipeline end-to-end, from first touch to close.",
+    Team.PRODUCT: "You'll work with engineering and design from first insight to launch.",
+    Team.MARKETING: "You'll own campaigns end-to-end and measure what actually works.",
+    Team.DESIGN: "You'll run the full design process, from research to polished, shippable work.",
+    Team.FINANCE: "You'll own the models and reporting that guide our biggest decisions.",
+    Team.OPERATIONS: "You'll design the processes that keep the business running smoothly.",
+}
 
 _LEVEL_PREFIX: dict[SeniorityLevel, str] = {
     SeniorityLevel.INTERN: "Intern,",
@@ -302,39 +398,33 @@ def _salary(level: SeniorityLevel, team: Team, country: str) -> tuple[int, int]:
     return _round_5k(base), _round_5k(base * 1.3)
 
 
-def _bullets(heading: str, items: list[str]) -> str:
-    return heading + "\n" + "\n".join(f"• {i}" for i in items)
+def _skill_phrase(skills: list[str]) -> str:
+    # Oxford-comma join so skills read naturally inside a sentence.
+    if len(skills) == 1:
+        return skills[0]
+    if len(skills) == 2:
+        return f"{skills[0]} and {skills[1]}"
+    return ", ".join(skills[:-1]) + f", and {skills[-1]}"
 
 
-def _render_description(
-    company: str,
-    about: str,
-    summary: str,
-    team: Team,
-    required: list[str],
-    preferred: list[str],
-    rng: random.Random,
-) -> str:
-    """Assemble the full, display-only JD with varied headings and sections."""
-    sections: list[str] = []
-    sections.append(f"{rng.choice(_HEADINGS['about']).format(company=company)}\n{about}")
-    sections.append(summary)
+def _required_quals(
+    level: SeniorityLevel, team: Team, required: list[str], rng: random.Random
+) -> list[str]:
+    """Three prose sentences: experience line, skills woven in, team disposition."""
+    return [
+        _EXPERIENCE_LINE[level].format(domain=_TEAM_DOMAIN[team]),
+        rng.choice(_SKILL_FRAMES).format(skills=_skill_phrase(required)),
+        rng.choice(_DISPOSITION[team]),
+    ]
 
-    resp_pool = _RESPONSIBILITIES[team]
-    resps = rng.sample(resp_pool, min(rng.randint(3, 5), len(resp_pool)))
-    sections.append(_bullets(rng.choice(_HEADINGS["responsibilities"]), resps))
 
-    sections.append(_bullets(rng.choice(_HEADINGS["required"]), required))
-
-    # Preferred and benefits sometimes omitted, so headings/sections vary per JD.
-    if preferred and rng.random() > 0.2:
-        sections.append(_bullets(rng.choice(_HEADINGS["preferred"]), preferred))
-    if rng.random() > 0.2:
-        bens = rng.sample(_BENEFITS, min(rng.randint(3, 5), len(_BENEFITS)))
-        sections.append(_bullets(rng.choice(_HEADINGS["benefits"]), bens))
-
-    sections.append(_EEO.format(company=company))
-    return "\n\n".join(sections)
+def _preferred_quals(preferred: list[str], rng: random.Random) -> list[str]:
+    """A "bonus" line weaving the preferred skills, plus an aspirational closer."""
+    quals: list[str] = []
+    if preferred:
+        quals.append(rng.choice(_BONUS_FRAMES).format(skills=_skill_phrase(preferred)))
+    quals.append(rng.choice(_ASPIRATIONAL))
+    return quals
 
 
 def generate(n: int, seed: int = 0) -> list[Job]:
@@ -372,14 +462,21 @@ def generate(n: int, seed: int = 0) -> list[Job]:
         )
         skills = required + preferred
 
-        company, about = rng.choice(_COMPANIES)
+        company, company_about = rng.choice(_COMPANIES)
         summary = rng.choice(_ROLE_SUMMARIES[team]).format(title=base_title)
         summary = summary.replace(
             f"a {base_title}", f"{_article(base_title)} {base_title}", 1
         )
-        description = _render_description(
-            company, about, summary, team, required, preferred, rng
+        about_role = f"{summary} {_ROLE_ELABORATION[team]}"
+
+        resp_pool = _RESPONSIBILITIES[team]
+        responsibilities = rng.sample(
+            resp_pool, min(rng.randint(3, 5), len(resp_pool))
         )
+        required_quals = _required_quals(level, team, required, rng)
+        preferred_quals = _preferred_quals(preferred, rng)
+        benefits = rng.sample(_BENEFITS, min(rng.randint(3, 5), len(_BENEFITS)))
+
         salary_min, salary_max = _salary(level, team, country)
         posted = _POST_ANCHOR - datetime.timedelta(days=rng.randint(0, 60))
 
@@ -395,9 +492,14 @@ def generate(n: int, seed: int = 0) -> list[Job]:
                 country=country,
                 work_mode=work_mode,
                 skills=skills,
-                description=description,
                 company=company,
+                company_about=company_about,
                 summary=summary,
+                about_role=about_role,
+                responsibilities=responsibilities,
+                required_quals=required_quals,
+                preferred_quals=preferred_quals,
+                benefits=benefits,
                 salary_min=salary_min,
                 salary_max=salary_max,
                 posted_date=posted.isoformat(),

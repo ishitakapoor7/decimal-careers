@@ -5,9 +5,10 @@ from app.storage.models import Job
 
 
 def job_to_text(job: Job) -> str:
-    # Embed only the role signal — title + skills + the short summary. The full
-    # `description` is display-only boilerplate (company/benefits/EEO) that would
-    # dilute the vector across jobs, so it is deliberately excluded (§3B / §13).
+    # Embed only the role signal — title + skills + the short summary. The other
+    # display fields (about_role, responsibilities, required/preferred_quals,
+    # benefits, company_about) are prose for the page and would dilute the vector
+    # across jobs, so they are deliberately excluded (§3B / §13).
     return f"{job.title}. Skills: {', '.join(job.skills)}. {job.summary}"
 
 

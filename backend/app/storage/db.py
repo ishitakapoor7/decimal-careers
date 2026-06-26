@@ -42,9 +42,10 @@ class Database:
                     id TEXT PRIMARY KEY, title TEXT, team TEXT, employment_type TEXT,
                     seniority_level TEXT, city TEXT,
                     state_region TEXT, country TEXT, work_mode TEXT,
-                    skills TEXT, description TEXT,
-                    company TEXT, summary TEXT, salary_min INTEGER,
-                    salary_max INTEGER, posted_date TEXT
+                    skills TEXT, company TEXT, company_about TEXT,
+                    summary TEXT, about_role TEXT, responsibilities TEXT,
+                    required_quals TEXT, preferred_quals TEXT, benefits TEXT,
+                    salary_min INTEGER, salary_max INTEGER, posted_date TEXT
                 );
                 CREATE INDEX IF NOT EXISTS idx_jobs_team ON jobs(team);
                 CREATE INDEX IF NOT EXISTS idx_jobs_level ON jobs(seniority_level);
@@ -65,7 +66,7 @@ class Database:
         with self._lock:
             self._conn.executemany(
                 "INSERT OR REPLACE INTO jobs VALUES "
-                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 [
                     (
                         j.id,
@@ -78,9 +79,14 @@ class Database:
                         j.country,
                         j.work_mode.value,
                         json.dumps(j.skills),
-                        j.description,
                         j.company,
+                        j.company_about,
                         j.summary,
+                        j.about_role,
+                        json.dumps(j.responsibilities),
+                        json.dumps(j.required_quals),
+                        json.dumps(j.preferred_quals),
+                        json.dumps(j.benefits),
                         j.salary_min,
                         j.salary_max,
                         j.posted_date,
@@ -102,9 +108,14 @@ class Database:
             country=row["country"],
             work_mode=WorkMode(row["work_mode"]),
             skills=json.loads(row["skills"]),
-            description=row["description"],
             company=row["company"],
+            company_about=row["company_about"],
             summary=row["summary"],
+            about_role=row["about_role"],
+            responsibilities=json.loads(row["responsibilities"]),
+            required_quals=json.loads(row["required_quals"]),
+            preferred_quals=json.loads(row["preferred_quals"]),
+            benefits=json.loads(row["benefits"]),
             salary_min=row["salary_min"],
             salary_max=row["salary_max"],
             posted_date=row["posted_date"],

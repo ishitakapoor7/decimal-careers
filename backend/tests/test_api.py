@@ -83,8 +83,15 @@ def test_upload_reuses_supplied_id():
 
 def test_job_response_includes_new_display_fields():
     item = client.get("/jobs", params={"limit": 1}).json()["items"][0]
-    for key in ("company", "summary", "salary_min", "salary_max", "posted_date"):
+    for key in (
+        "company", "company_about", "summary", "about_role", "responsibilities",
+        "required_quals", "preferred_quals", "benefits", "salary_min",
+        "salary_max", "posted_date",
+    ):
         assert key in item, f"missing {key}"
+    # Qualifications arrive as prose sentences, not bare skill words.
+    assert all(q.endswith(".") and " " in q for q in item["required_quals"])
+    assert "description" not in item  # the single blob was replaced by sections
 
 
 def test_job_response_omits_min_years_exp():

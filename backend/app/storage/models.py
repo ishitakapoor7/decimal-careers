@@ -44,11 +44,19 @@ class Job:
     country: str
     work_mode: WorkMode
     skills: list[str]
-    description: str
-    # Multi-company display fields (§3). `summary` is the only one embedded
-    # (via job_to_text); the rest are display-only — see the rich-jd design note.
+    # Display + signal fields. `summary` is the ONLY generated text that is
+    # embedded (via job_to_text); `skills` also feeds the vector. Everything else
+    # here is display-only prose the frontend styles section-by-section — see the
+    # prose-qualifications design note. Qualifications are full sentences, not
+    # bare skill words, so the JD reads like a real posting.
     company: str
+    company_about: str
     summary: str
+    about_role: str
+    responsibilities: list[str]
+    required_quals: list[str]
+    preferred_quals: list[str]
+    benefits: list[str]
     salary_min: int
     salary_max: int
     posted_date: str
