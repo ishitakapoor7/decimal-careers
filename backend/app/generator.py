@@ -266,7 +266,7 @@ _TEAM_DOMAIN: dict[Team, str] = {
 # Experience line, keyed to seniority. Display-only — does NOT reintroduce a
 # filterable min_years_exp; the years are derived from seniority_level for reading.
 _EXPERIENCE_LINE: dict[SeniorityLevel, str] = {
-    SeniorityLevel.INTERN: "You're pursuing a degree and eager to get hands-on experience {domain}.",
+    SeniorityLevel.INTERN: "You're currently enrolled in a degree program and eager to get hands-on experience {domain}.",
     SeniorityLevel.ENTRY: "You have 0–2 years of experience {domain}.",
     SeniorityLevel.MID: "You have 3+ years of hands-on experience {domain}.",
     SeniorityLevel.SENIOR: "You have 5+ years of experience {domain} and can operate independently.",
