@@ -53,7 +53,7 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_jobs_mode ON jobs(work_mode);
                 CREATE TABLE IF NOT EXISTS candidates (
                     id TEXT PRIMARY KEY, resume_text TEXT, created_at TEXT,
-                    resume_vector BLOB
+                    resume_vector BLOB, profile TEXT
                 );
                 CREATE TABLE IF NOT EXISTS applications (
                     id TEXT PRIMARY KEY, candidate_id TEXT, job_id TEXT,
@@ -77,6 +77,7 @@ class Database:
         # Each entry is idempotent: add the column only when it's absent.
         additions = {
             "applications": [("resume_name", "TEXT")],
+            "candidates": [("resume_vector", "BLOB"), ("profile", "TEXT")],
         }
         for table, columns in additions.items():
             existing = {
@@ -221,8 +222,10 @@ class Database:
     def insert_candidate(self, c: Candidate) -> None:
         with self._lock:
             self._conn.execute(
-                "INSERT OR REPLACE INTO candidates VALUES (?,?,?,?)",
-                (c.id, c.resume_text, c.created_at, c.resume_vector),
+                "INSERT OR REPLACE INTO candidates "
+                "(id, resume_text, created_at, resume_vector, profile) "
+                "VALUES (?,?,?,?,?)",
+                (c.id, c.resume_text, c.created_at, c.resume_vector, c.profile),
             )
             self._conn.commit()
 
@@ -231,15 +234,15 @@ class Database:
             row = self._conn.execute(
                 "SELECT * FROM candidates WHERE id = ?", (cid,)
             ).fetchone()
-        return (
-            Candidate(
-                id=row["id"],
-                resume_text=row["resume_text"],
-                created_at=row["created_at"],
-                resume_vector=row["resume_vector"],
-            )
-            if row
-            else None
+        if row is None:
+            return None
+        keys = row.keys()
+        return Candidate(
+            id=row["id"],
+            resume_text=row["resume_text"],
+            created_at=row["created_at"],
+            resume_vector=row["resume_vector"],
+            profile=row["profile"] if "profile" in keys else None,
         )
 
     def insert_application(self, a: Application) -> None:

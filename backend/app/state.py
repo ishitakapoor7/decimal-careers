@@ -2,6 +2,7 @@ from app.generator import generate
 from app.matching.embedder import Embedder, job_to_text
 from app.matching.index import FaissIndex, JobIndex, NumpyIndex
 from app.matching.ranker import Ranker
+from app.resume.profile import select_extractor
 from app.storage.db import Database
 from app.storage.models import Job
 
@@ -23,7 +24,13 @@ class AppState:
         # catalog is persisted, never from a separately-generated list that could
         # diverge from the DB (caveat §0 — old code regenerated at boot and left
         # orphan rows that browse could see but personalization could not rank).
-        self.index = build_index(db.all_jobs(), embedder)
+        jobs = db.all_jobs()
+        # In-memory job map, built once from the same boot-time catalog as the
+        # index. The fit rescorer needs each job's seniority/skills for EVERY
+        # allowed job on EVERY personalized request; serving that from RAM keeps it
+        # O(1) instead of a DB read per job (jobs are static per boot, like the index).
+        self.jobs_by_id = {j.id: j for j in jobs}
+        self.index = build_index(jobs, embedder)
         # Relevance cutoff for personalized ranking: drop roles scoring below
         # 65% of the candidate's strongest match (with a 0.30 absolute floor).
         # Calibrated from the seeded catalog's score distributions — for a SWE
@@ -31,6 +38,10 @@ class AppState:
         # role is ~0.48, so this removes clearly-unrelated teams while keeping
         # genuinely adjacent ones (e.g. product for a marketing résumé). Tunable.
         self.ranker = Ranker(self.index, rel_ratio=0.65, abs_floor=0.30)
+        # Résumé → structured profile (seniority/education/skills). HeuristicExtractor
+        # unless ANTHROPIC_API_KEY is set; the LLM path is a dormant swap (see
+        # select_extractor). Built once and reused for every upload.
+        self.extractor = select_extractor()
 
     @classmethod
     def seeded(

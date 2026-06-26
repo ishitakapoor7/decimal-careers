@@ -165,14 +165,59 @@ def test_personalized_ranking_failure_degrades_to_plain_browse():
     def boom(*args, **kwargs):
         raise RuntimeError("vector store unavailable")
 
-    original = _TEST_STATE.ranker.rank_ids
-    _TEST_STATE.ranker.rank_ids = boom  # type: ignore[method-assign]
+    # The personalized path now runs the calibrated fit ranker; break that.
+    original = _TEST_STATE.ranker.rank_with_fit
+    _TEST_STATE.ranker.rank_with_fit = boom  # type: ignore[method-assign]
     try:
         r = client.get("/jobs", params={"candidate_id": cid, "limit": 5})
     finally:
-        _TEST_STATE.ranker.rank_ids = original  # type: ignore[method-assign]
+        _TEST_STATE.ranker.rank_with_fit = original  # type: ignore[method-assign]
     assert r.status_code == 200
     assert len(r.json()["items"]) > 0
+
+
+def test_personalized_response_carries_fit_tier():
+    cid = client.post(
+        "/upload-resume",
+        files={
+            "file": (
+                "r.docx",
+                _docx("Senior Backend Engineer. 6 years of experience. Python, Postgres, Go."),
+                _DOCX_MIME,
+            )
+        },
+    ).json()["candidate_id"]
+    items = client.get(
+        "/jobs", params={"candidate_id": cid, "team": "engineering", "limit": 5}
+    ).json()["items"]
+    assert items
+    assert all(it["fit"] is not None for it in items)
+    assert all(it["fit"]["tier"] in {"strong", "good", "possible"} for it in items)
+
+
+def test_overqualified_resume_is_not_strong_on_intern_roles():
+    # A VP-level résumé with no seniority filter must NOT get a "Strong match" on
+    # intern roles — either crushed below threshold (absent) or a low tier.
+    cid = client.post(
+        "/upload-resume",
+        files={
+            "file": (
+                "r.docx",
+                _docx("VP of Engineering. 20 years of experience leading teams. Python."),
+                _DOCX_MIME,
+            )
+        },
+    ).json()["candidate_id"]
+    items = client.get(
+        "/jobs",
+        params={
+            "candidate_id": cid,
+            "team": "engineering",
+            "seniority_level": "intern",
+            "limit": 20,
+        },
+    ).json()["items"]
+    assert all(it["fit"]["tier"] != "strong" for it in items)
 
 
 def test_job_response_includes_new_display_fields():

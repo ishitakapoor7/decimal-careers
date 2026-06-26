@@ -7,10 +7,13 @@ from datetime import datetime, timezone
 import numpy as np
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
 
+from app.matching.fit import make_rescorer
 from app.resume.parser import parse_resume
+from app.resume.profile import profile_from_json, profile_to_json
 from app.schemas import (
     ApplicationOut,
     ApplyRequest,
+    FitOut,
     JobOut,
     JobsPage,
     SaveRequest,
@@ -61,8 +64,9 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-def _to_out(job: Job) -> JobOut:
+def _to_out(job: Job, fit: FitOut | None = None) -> JobOut:
     return JobOut(
+        fit=fit,
         id=job.id,
         title=job.title,
         team=job.team.value,
@@ -124,6 +128,34 @@ def list_jobs(
                 query = np.frombuffer(candidate.resume_vector, dtype=np.float32)
             else:
                 query = state.embedder.encode([candidate.resume_text])[0]
+            profile = profile_from_json(candidate.profile)
+            if profile is not None:
+                # Calibrated fit path: re-rank by cosine × seniority × education and
+                # attach the tier + reasons. The structured signals fix the "VP gets
+                # a Strong-match intern role" / "graduated matches enrollment-only
+                # role" failures that pure similarity can't see.
+                rescore = make_rescorer(profile, state.jobs_by_id.get)
+                ids, fits, total = state.ranker.rank_with_fit(
+                    query, allowed, limit, offset, rescore, cache_key=candidate_id
+                )
+                items = []
+                for i in ids:
+                    job = state.jobs_by_id.get(i)
+                    if job is None:
+                        continue
+                    f = fits.get(i)
+                    out_fit = (
+                        FitOut(
+                            tier=f.tier,
+                            reasons=f.reasons,
+                            matched_skills=f.matched_skills,
+                        )
+                        if f
+                        else None
+                    )
+                    items.append(_to_out(job, out_fit))
+                return JobsPage(items=items, total=total, limit=limit, offset=offset)
+            # No stored profile (candidate predates the column): plain cosine rank.
             ids, total = state.ranker.rank_ids(
                 query, allowed, limit, offset, cache_key=candidate_id
             )
@@ -179,8 +211,17 @@ def upload_resume(
     # Embed once here so the personalized /jobs path (incl. every pagination
     # click) reuses the stored vector instead of re-running the model.
     vector = state.embedder.encode([text])[0].tobytes()
+    # Extract the structured profile once too (seniority/education/skills), so the
+    # calibrated fit layer reuses it on every /jobs call instead of re-parsing.
+    profile = profile_to_json(state.extractor.extract(text))
     state.db.insert_candidate(
-        Candidate(id=cid, resume_text=text, resume_vector=vector, created_at=_now())
+        Candidate(
+            id=cid,
+            resume_text=text,
+            resume_vector=vector,
+            created_at=_now(),
+            profile=profile,
+        )
     )
     # Bust any cached ranking so the new resume re-ranks on the next /jobs call.
     state.ranker.invalidate(cid)

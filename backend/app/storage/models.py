@@ -71,6 +71,10 @@ class Candidate:
     # reuses it instead of re-running the model on every request. Optional:
     # candidates predating this column (or with no extractable text) have None.
     resume_vector: bytes | None = None
+    # Structured signal extracted from the résumé (seniority/education/skills),
+    # serialized as JSON. Extracted once at upload and reused on every /jobs call
+    # to drive the calibrated fit score. None for candidates predating the column.
+    profile: str | None = None
 
 
 @dataclass(frozen=True)

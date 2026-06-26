@@ -1,6 +1,15 @@
 from pydantic import BaseModel
 
 
+class FitOut(BaseModel):
+    # Calibrated fit, present only on the personalized /jobs path. The raw score is
+    # deliberately NOT exposed (avoids false precision); the frontend renders the
+    # tier + reasons. matched_skills powers the positive "matches these skills" chip.
+    tier: str
+    reasons: list[str] = []
+    matched_skills: list[str] = []
+
+
 class JobOut(BaseModel):
     id: str
     title: str
@@ -23,6 +32,8 @@ class JobOut(BaseModel):
     salary_min: int
     salary_max: int
     posted_date: str
+    # Populated only on the personalized path (a candidate with a parsed résumé).
+    fit: FitOut | None = None
 
 
 class JobsPage(BaseModel):
