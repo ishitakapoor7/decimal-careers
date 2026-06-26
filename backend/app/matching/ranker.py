@@ -1,7 +1,9 @@
 from collections import OrderedDict
+from collections.abc import Callable
 
 import numpy as np
 
+from app.matching.fit import JobFit, JobFitPartial, finalize_fit
 from app.matching.index import JobIndex
 
 
@@ -49,6 +51,39 @@ class Ranker:
         kept = self._above_threshold(allowed)
         total = len(kept)
         return kept[offset : offset + limit], total
+
+    def rank_with_fit(
+        self,
+        query: np.ndarray,
+        allowed_ids: set[str],
+        limit: int,
+        offset: int,
+        rescore: Callable[[str, float], JobFitPartial],
+        cache_key: str | None = None,
+    ) -> tuple[list[str], dict[str, JobFit], int]:
+        """Personalized ranking with the calibrated fit layer. `rescore` turns each
+        (job_id, cosine) into a JobFitPartial; the relevance threshold then bites on
+        the CALIBRATED score (so an over-qualified / ineligible role drops out), and
+        the surviving tier comes from the calibrated score, not rank position."""
+        ranked = self._search(query, cache_key)
+        scored = [
+            (job_id, rescore(job_id, score))
+            for job_id, score in ranked
+            if job_id in allowed_ids
+        ]
+        scored.sort(key=lambda t: t[1].calibrated, reverse=True)
+        if not scored:
+            return [], {}, 0
+        top = scored[0][1].calibrated
+        threshold = max(self._rel_ratio * top, self._abs_floor)
+        kept = [(jid, p) for jid, p in scored if p.calibrated >= threshold]
+        total = len(kept)
+        page = kept[offset : offset + limit]
+        fits = {
+            jid: finalize_fit(p, (p.calibrated / top) if top > 0 else 0.0)
+            for jid, p in page
+        }
+        return [jid for jid, _ in page], fits, total
 
     def _above_threshold(self, allowed: list[tuple[str, float]]) -> list[str]:
         if not allowed:

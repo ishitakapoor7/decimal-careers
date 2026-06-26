@@ -1,5 +1,6 @@
 import numpy as np
 
+from app.matching.fit import JobFitPartial
 from app.matching.index import NumpyIndex
 from app.matching.ranker import Ranker
 
@@ -69,6 +70,36 @@ def test_threshold_is_relative_to_the_best_allowed_match():
     )
     assert ids == ["c"]
     assert total == 1
+
+
+def test_rank_with_fit_thresholds_on_calibrated_and_caps_tier():
+    # Query [1,1]: cosines a=c=0.707-ish... actually a=b=0.707, c=1.0. Penalties:
+    # "c" crushed below threshold; "b" survives but is hard-capped to "possible"
+    # despite a high score ratio; "a" is a clean strong match with skills.
+    ranker = Ranker(_index(), rel_ratio=0.6, abs_floor=0.0)
+
+    def rescore(jid: str, cos: float) -> JobFitPartial:
+        if jid == "c":
+            return JobFitPartial(cos * 0.05, ["over-qualified"], [], "possible")
+        if jid == "b":
+            return JobFitPartial(cos * 0.95, ["capped"], [], "possible")
+        return JobFitPartial(cos, [], ["Python"], None)
+
+    ids, fits, total = ranker.rank_with_fit(
+        _unit([1, 1]), {"a", "b", "c"}, limit=10, offset=0, rescore=rescore
+    )
+    assert "c" not in ids  # calibrated score fell below the relevance threshold
+    assert total == 2
+    assert fits["b"].tier == "possible"  # capped despite a near-top score ratio
+    assert "Python" in fits["a"].matched_skills
+
+
+def test_rank_with_fit_empty_when_nothing_allowed():
+    ranker = Ranker(_index())
+    ids, fits, total = ranker.rank_with_fit(
+        _unit([1, 0]), set(), 10, 0, lambda j, c: JobFitPartial(c, [], [], None)
+    )
+    assert ids == [] and fits == {} and total == 0
 
 
 def test_search_is_cached_per_key_across_pages():
