@@ -232,7 +232,7 @@
 }
 .savedDate {
   font-size: 13px;
-  color: var(--faint);
+  color: var(--muted-2);
 }
 .applyBtn {
   height: 40px;

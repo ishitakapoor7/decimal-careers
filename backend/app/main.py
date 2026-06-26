@@ -281,7 +281,14 @@ def unsave_job(
 def list_saved(
     candidate_id: str, state: AppState = Depends(get_state)
 ) -> dict[str, list]:
-    # Return full jobs (not just ids) so the Saved tab renders cards directly.
+    # Return full jobs (not just ids) so the Saved tab renders cards directly,
+    # each tagged with when it was saved (newest first, mirroring list_saved).
     saved = state.db.list_saved(candidate_id)
-    items = [_to_out(job) for s in saved if (job := state.db.get_job(s.job_id))]
-    return {"items": [i.model_dump() for i in items]}
+    items = []
+    for s in saved:
+        job = state.db.get_job(s.job_id)
+        if job:
+            item = _to_out(job).model_dump()
+            item["saved_at"] = s.created_at
+            items.append(item)
+    return {"items": items}

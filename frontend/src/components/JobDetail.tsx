@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { Job } from "../api/types";
 import {
   initial,
@@ -64,8 +65,15 @@ export function JobDetail({
   const seniority = job.seniority_level.charAt(0).toUpperCase() + job.seniority_level.slice(1);
   const team = job.team.charAt(0).toUpperCase() + job.team.slice(1);
 
+  // Switching jobs swaps the content in-place; reset the scroll to the top so a
+  // new JD always starts at the header instead of wherever the last one was.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    panelRef.current?.scrollTo(0, 0);
+  }, [job.id]);
+
   return (
-    <div className={styles.panel}>
+    <div className={styles.panel} ref={panelRef}>
       <div className={styles.inner}>
         <div className={styles.head}>
           <div className={styles.companyRow}>
@@ -88,7 +96,7 @@ export function JobDetail({
           <h1 className={styles.title}>{job.title}</h1>
 
           <div className={styles.chips}>
-            <Tag tone={workModeTone(job.work_mode)}>{workModeLabel(job.work_mode)}</Tag>
+            <Tag tone={workModeTone(job.work_mode)}>{workModeLabel(job)}</Tag>
             <Tag>{employment}</Tag>
             <Tag>{seniority}</Tag>
             <Tag tone={teamTone(job.team)}>{team}</Tag>
@@ -182,8 +190,8 @@ export function JobDetail({
         )}
 
         <p className={styles.eeo}>
-          decimal is an equal-opportunity employer. We celebrate diversity and are
-          committed to an inclusive hiring process for all candidates.
+          {job.company} is an equal-opportunity employer. They celebrate diversity
+          and are committed to an inclusive hiring process for all candidates.
         </p>
       </div>
     </div>

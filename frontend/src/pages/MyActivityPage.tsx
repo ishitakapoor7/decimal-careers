@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError, api } from "../api/client";
-import type { Application, Job } from "../api/types";
+import type { Application, Job, SavedJob } from "../api/types";
 import { ApplyDrawer } from "../components/ApplyDrawer";
 import { ActivityHeader } from "../components/Header";
 import { Tag } from "../components/Tag";
@@ -28,7 +28,7 @@ export function MyActivityPage() {
   const [tab, setTab] = useState<TabKey>("applications");
   const [applications, setApplications] = useState<Application[]>([]);
   const [jobsById, setJobsById] = useState<Record<string, Job>>({});
-  const [saved, setSaved] = useState<Job[]>([]);
+  const [saved, setSaved] = useState<SavedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -251,7 +251,7 @@ function SavedCard({
   onUnsave,
   onApply,
 }: {
-  job: Job;
+  job: SavedJob;
   onUnsave: () => void;
   onApply: () => void;
 }) {
@@ -265,9 +265,7 @@ function SavedCard({
             <span className={styles.savedSalary}>
               {salaryRange(job.salary_min, job.salary_max)}
             </span>
-            <Tag tone={workModeTone(job.work_mode)}>
-              {workModeLabel(job.work_mode)}
-            </Tag>
+            <Tag tone={workModeTone(job.work_mode)}>{workModeLabel(job)}</Tag>
           </div>
         </div>
         <button
@@ -279,7 +277,9 @@ function SavedCard({
         </button>
       </div>
       <div className={styles.savedFoot}>
-        <span className={styles.savedDate} />
+        <span className={styles.savedDate}>
+          {job.saved_at ? `Saved ${shortDate(job.saved_at)}` : ""}
+        </span>
         <button className={styles.applyBtn} onClick={onApply}>
           Apply
         </button>

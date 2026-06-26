@@ -40,6 +40,11 @@ export interface JobsPage {
   offset: number;
 }
 
+// A saved role: the full job plus when the candidate saved it.
+export interface SavedJob extends Job {
+  saved_at: string;
+}
+
 export interface Application {
   id: string;
   candidate_id: string;

@@ -8,3 +8,8 @@ dist-ssr
 
 # TypeScript incremental build cache (regenerated on build)
 *.tsbuildinfo
+
+# The repo-root .gitignore has a Python "lib/" rule that also matches our
+# source folder src/lib — re-include it (it holds format.ts / candidate.ts).
+!src/lib/
+!src/lib/**

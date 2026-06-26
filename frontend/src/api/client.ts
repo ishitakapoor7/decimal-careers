@@ -4,6 +4,7 @@ import type {
   Job,
   JobFilters,
   JobsPage,
+  SavedJob,
 } from "./types";
 
 // In dev, Vite proxies "/api" → the backend (see vite.config.ts). In a built
@@ -113,7 +114,7 @@ export const api = {
     );
   },
 
-  listSaved(candidateId: string): Promise<{ items: Job[] }> {
+  listSaved(candidateId: string): Promise<{ items: SavedJob[] }> {
     return request(`/saved${buildQuery({ candidate_id: candidateId })}`);
   },
 };

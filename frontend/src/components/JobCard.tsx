@@ -70,7 +70,7 @@ export function JobCard({
         <span className={styles.salary}>
           {salaryRange(job.salary_min, job.salary_max)}
         </span>
-        <Tag tone={workModeTone(job.work_mode)}>{workModeLabel(job.work_mode)}</Tag>
+        <Tag tone={workModeTone(job.work_mode)}>{workModeLabel(job)}</Tag>
         <Tag tone={teamTone(job.team)}>
           {job.team.charAt(0).toUpperCase() + job.team.slice(1)}
         </Tag>
