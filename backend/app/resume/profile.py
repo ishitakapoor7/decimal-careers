@@ -78,8 +78,13 @@ _SENIORITY_KEYWORDS: list[tuple[SeniorityRank, tuple[str, ...]]] = [
         "lead engineer", "engineering manager", "senior manager",
     )),
     (SeniorityRank.SENIOR, ("senior", "sr.")),
+    # "Junior" reads as MID, not entry: a résumé that states a "Junior X" title means
+    # the person climbed the ladder into that role. Entry-level candidates typically
+    # list the bare title (no prefix), so entry signals are explicit ("entry-level",
+    # "new grad", "associate", "apprentice").
+    (SeniorityRank.MID, ("junior", "jr.", "mid-level", "mid level")),
     (SeniorityRank.ENTRY, (
-        "junior", "jr.", "associate", "new grad", "entry-level", "apprentice",
+        "associate", "new grad", "entry-level", "apprentice",
     )),
     (SeniorityRank.INTERN, ("intern", "internship", "trainee", "co-op")),
 ]

@@ -19,6 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
+from app.generator import INTERN_OPEN_TO_GRADS
 from app.resume.profile import JOB_RANK, ResumeProfile, SeniorityRank
 from app.storage.models import Job, SeniorityLevel
 
@@ -60,9 +61,13 @@ def job_seniority_rank(job: Job) -> SeniorityRank:
 
 
 def job_requires_enrollment(job: Job) -> bool:
-    # The generator ties intern ↔ internship ↔ "pursuing a degree", so the intern
-    # level IS the enrollment requirement. Derived (no schema field) on purpose.
-    return job.seniority_level == SeniorityLevel.INTERN
+    # Intern level ⇒ enrollment required, EXCEPT the minority of internships the
+    # generator marks open to recent grads (INTERN_OPEN_TO_GRADS in the quals) — so a
+    # graduated candidate is only penalized on roles that truly need a degree in
+    # progress. Derived from the JD text (single source of truth), no schema field.
+    if job.seniority_level != SeniorityLevel.INTERN:
+        return False
+    return not any(INTERN_OPEN_TO_GRADS in q.lower() for q in job.required_quals)
 
 
 def seniority_factor(

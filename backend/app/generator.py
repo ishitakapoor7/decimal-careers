@@ -263,10 +263,25 @@ _TEAM_DOMAIN: dict[Team, str] = {
     Team.OPERATIONS: "running business operations",
 }
 
+# Most internships require current enrollment, but a minority are open to recent
+# grads too — uncommon, not impossible. INTERN_OPEN_TO_GRADS is the phrase the
+# education gate (fit.job_requires_enrollment) keys off: its presence in a JD means
+# "enrollment not required," so an already-graduated candidate isn't penalized for
+# that role. The JD text stays the single source of truth — no schema flag.
+INTERN_OPEN_TO_GRADS = "open to current students and recent grads"
+_INTERN_ENROLLED_LINE = (
+    "You're currently enrolled in a degree program and eager to get hands-on "
+    "experience {domain}."
+)
+_INTERN_OPEN_LINE = (
+    "This internship is " + INTERN_OPEN_TO_GRADS + " looking to get hands-on "
+    "experience {domain}."
+)
+
 # Experience line, keyed to seniority. Display-only — does NOT reintroduce a
 # filterable min_years_exp; the years are derived from seniority_level for reading.
+# Intern is handled separately (see _experience_line) so it can vary enrollment.
 _EXPERIENCE_LINE: dict[SeniorityLevel, str] = {
-    SeniorityLevel.INTERN: "You're currently enrolled in a degree program and eager to get hands-on experience {domain}.",
     SeniorityLevel.ENTRY: "You have 0–2 years of experience {domain}.",
     SeniorityLevel.MID: "You have 3+ years of hands-on experience {domain}.",
     SeniorityLevel.SENIOR: "You have 5+ years of experience {domain} and can operate independently.",
@@ -360,10 +375,13 @@ _ROLE_ELABORATION: dict[Team, str] = {
     Team.OPERATIONS: "You'll design the processes that keep the business running smoothly.",
 }
 
+# Title prefix per level. "Junior" sits at MID (3+ yrs), not ENTRY: an entry-level
+# role is 0–2 yrs, a junior role is a step up into mid-tier — so the title and the
+# experience line below never contradict each other.
 _LEVEL_PREFIX: dict[SeniorityLevel, str] = {
     SeniorityLevel.INTERN: "Intern,",
-    SeniorityLevel.ENTRY: "Junior",
-    SeniorityLevel.MID: "",
+    SeniorityLevel.ENTRY: "Entry-level",
+    SeniorityLevel.MID: "Junior",
     SeniorityLevel.SENIOR: "Senior",
     SeniorityLevel.STAFF: "Staff",
 }
@@ -420,12 +438,22 @@ def _skill_phrase(skills: list[str]) -> str:
     return ", ".join(skills[:-1]) + f", and {skills[-1]}"
 
 
+def _experience_line(level: SeniorityLevel, team: Team, rng: random.Random) -> str:
+    """The experience sentence. For interns, occasionally (~1 in 4) the role is open
+    to recent grads rather than requiring current enrollment."""
+    if level == SeniorityLevel.INTERN:
+        tmpl = _INTERN_OPEN_LINE if rng.random() < 0.25 else _INTERN_ENROLLED_LINE
+    else:
+        tmpl = _EXPERIENCE_LINE[level]
+    return tmpl.format(domain=_TEAM_DOMAIN[team])
+
+
 def _required_quals(
     level: SeniorityLevel, team: Team, required: list[str], rng: random.Random
 ) -> list[str]:
     """Three prose sentences: experience line, skills woven in, team disposition."""
     return [
-        _EXPERIENCE_LINE[level].format(domain=_TEAM_DOMAIN[team]),
+        _experience_line(level, team, rng),
         rng.choice(_SKILL_FRAMES).format(skills=_skill_phrase(required)),
         rng.choice(_DISPOSITION[team]),
     ]
