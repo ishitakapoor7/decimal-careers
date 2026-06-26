@@ -120,7 +120,34 @@ export function JobDetail({
               <span className={styles.matchDot} />
               {match.label} for your résumé
             </div>
-            <p className={styles.matchBody}>{MATCH_BODY[match.tone]}</p>
+            {(() => {
+              // Reasons are penalty explanations (seniority/education caveats); the
+              // positive skill overlap is shown as chips below, so drop its sentence.
+              const notes = (match.reasons ?? []).filter(
+                (r) => !r.toLowerCase().startsWith("matches "),
+              );
+              return notes.length > 0 ? (
+                <ul className={styles.reasonList}>
+                  {notes.map((r, i) => (
+                    <li className={styles.reason} key={i}>
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className={styles.matchBody}>{MATCH_BODY[match.tone]}</p>
+              );
+            })()}
+            {match.matchedSkills && match.matchedSkills.length > 0 && (
+              <div className={styles.skillChips}>
+                <span className={styles.skillLabel}>Matches</span>
+                {match.matchedSkills.map((s) => (
+                  <span className={styles.skillChip} key={s}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -14,6 +14,10 @@ import styles from "./JobCard.module.css";
 export interface MatchInfo {
   label: string;
   tone: Tone;
+  // Backend-supplied explainability (personalized path). The card shows only the
+  // label/tone; JobDetail renders these.
+  reasons?: string[];
+  matchedSkills?: string[];
 }
 
 export function JobCard({

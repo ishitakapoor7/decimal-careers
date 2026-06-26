@@ -6,6 +6,7 @@ import { ApplyDrawer } from "../components/ApplyDrawer";
 import { BrowseHeader } from "../components/Header";
 import { EMPTY_FILTERS, FilterBar, type FilterState } from "../components/FilterBar";
 import { JobCard, type MatchInfo } from "../components/JobCard";
+import type { Fit } from "../api/types";
 import { JobDetail } from "../components/JobDetail";
 import type { Option } from "../components/Dropdown";
 import { Pagination } from "../components/Pagination";
@@ -16,15 +17,33 @@ import styles from "./BrowsePage.module.css";
 
 const LIMIT = 20;
 
-// Translate a 0-based global rank into a match label. Only meaningful when the
-// list is personalized (re-sorted by résumé fit). We label by position because
-// the ranking itself is real — we don't invent per-role match reasons.
+// The backend now computes a calibrated fit tier per role (cosine × seniority ×
+// education) and explains it. Map that tier to the card/detail label + tone, and
+// carry the reasons/skills through for JobDetail to render.
+const TIER_TO_MATCH: Record<string, { label: string; tone: MatchInfo["tone"] }> = {
+  strong: { label: "Strong match", tone: "teal" },
+  good: { label: "Good match", tone: "gold" },
+  possible: { label: "Possible match", tone: "neutral" },
+};
+
+function matchFromFit(fit: Fit): MatchInfo {
+  const base = TIER_TO_MATCH[fit.tier] ?? TIER_TO_MATCH.possible;
+  return { ...base, reasons: fit.reasons, matchedSkills: fit.matched_skills };
+}
+
+// Fallback for a candidate that predates the stored profile (no per-role fit):
+// label by position, since the ranking itself is still real.
 function matchForRank(globalRank: number, total: number): MatchInfo | undefined {
   if (total <= 0) return undefined;
   const frac = globalRank / total;
   if (frac < 0.2) return { label: "Strong match", tone: "teal" };
   if (frac < 0.6) return { label: "Good match", tone: "gold" };
   return { label: "Possible match", tone: "neutral" };
+}
+
+// Prefer the backend's calibrated, explainable fit; fall back to position.
+function matchFor(job: Job, globalRank: number, total: number): MatchInfo | undefined {
+  return job.fit ? matchFromFit(job.fit) : matchForRank(globalRank, total);
 }
 
 export function BrowsePage() {
@@ -130,8 +149,8 @@ export function BrowsePage() {
   const selected = jobs.find((j) => j.id === selectedId) ?? null;
   const selectedIndex = jobs.findIndex((j) => j.id === selectedId);
   const detailMatch =
-    personalized && selectedIndex >= 0
-      ? matchForRank(offset + selectedIndex, total)
+    personalized && selected && selectedIndex >= 0
+      ? matchFor(selected, offset + selectedIndex, total)
       : undefined;
 
   const totalLabel = `${total.toLocaleString()} role${total === 1 ? "" : "s"}`;
@@ -194,9 +213,7 @@ export function BrowsePage() {
                   selected={job.id === selectedId}
                   saved={isSaved(job.id)}
                   match={
-                    personalized
-                      ? matchForRank(offset + i, total)
-                      : undefined
+                    personalized ? matchFor(job, offset + i, total) : undefined
                   }
                   onSelect={() => setSelectedId(job.id)}
                   onToggleSave={() => toggleSave(job.id)}

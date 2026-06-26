@@ -181,6 +181,47 @@
   font-size: 14px;
   line-height: 1.5;
 }
+.reasonList {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.reason {
+  font-size: 13.5px;
+  line-height: 1.45;
+  padding-left: 14px;
+  position: relative;
+}
+.reason::before {
+  content: "•";
+  position: absolute;
+  left: 2px;
+  opacity: 0.6;
+}
+.skillChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.skillLabel {
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.75;
+  align-self: center;
+  margin-right: 2px;
+}
+.skillChip {
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--teal-tint);
+  color: var(--teal-text);
+}
 
 /* Tone-keyed so the callout's color honestly reflects the match strength. */
 .callout_teal {
