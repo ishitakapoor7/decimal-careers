@@ -15,11 +15,9 @@ export interface MatchInfo {
   label: string;
   tone: Tone;
   // Backend-supplied explainability (personalized path). The card shows only the
-  // label/tone; JobDetail renders these. Skill matches are split into must-have vs
-  // nice-to-have so the detail view can weight required hits.
+  // label/tone; JobDetail renders these.
   reasons?: string[];
-  matchedRequired?: string[];
-  matchedPreferred?: string[];
+  matchedSkills?: string[];
 }
 
 export function JobCard({

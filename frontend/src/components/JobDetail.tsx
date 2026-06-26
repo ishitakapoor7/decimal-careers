@@ -141,25 +141,11 @@ export function JobDetail({
             ) : (
               <p className={styles.matchBody}>{MATCH_BODY[match.tone]}</p>
             )}
-            {match.matchedRequired && match.matchedRequired.length > 0 && (
+            {match.matchedSkills && match.matchedSkills.length > 0 && (
               <div className={styles.skillChips}>
-                <span className={styles.skillLabel}>
-                  {job.required_skills.length > 0
-                    ? `Must-haves you match · ${match.matchedRequired.length} of ${job.required_skills.length}`
-                    : "Skills you match"}
-                </span>
-                {match.matchedRequired.map((s) => (
+                <span className={styles.skillLabel}>Skills you match</span>
+                {match.matchedSkills.map((s) => (
                   <span className={styles.skillChip} key={s}>
-                    {s}
-                  </span>
-                ))}
-              </div>
-            )}
-            {match.matchedPreferred && match.matchedPreferred.length > 0 && (
-              <div className={styles.skillChips}>
-                <span className={styles.skillLabel}>Nice-to-haves you match</span>
-                {match.matchedPreferred.map((s) => (
-                  <span className={`${styles.skillChip} ${styles.skillChipPref}`} key={s}>
                     {s}
                   </span>
                 ))}

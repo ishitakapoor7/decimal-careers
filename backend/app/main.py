@@ -77,7 +77,6 @@ def _to_out(job: Job, fit: FitOut | None = None) -> JobOut:
         country=job.country,
         work_mode=job.work_mode.value,
         skills=job.skills,
-        required_skills=job.required_skills,
         company=job.company,
         company_about=job.company_about,
         summary=job.summary,
@@ -149,8 +148,7 @@ def list_jobs(
                         FitOut(
                             tier=f.tier,
                             reasons=f.reasons,
-                            matched_required=f.matched_required,
-                            matched_preferred=f.matched_preferred,
+                            matched_skills=f.matched_skills,
                         )
                         if f
                         else None

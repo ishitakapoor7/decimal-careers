@@ -4,7 +4,6 @@ from app.matching.fit import (
     finalize_fit,
     make_rescorer,
     seniority_factor,
-    skill_factor,
     skill_overlap,
 )
 from app.resume.profile import ResumeProfile, SeniorityRank
@@ -17,11 +16,7 @@ from app.storage.models import (
 )
 
 
-def _job(
-    level: SeniorityLevel,
-    skills: list[str] | None = None,
-    required_skills: list[str] | None = None,
-) -> Job:
+def _job(level: SeniorityLevel, skills: list[str] | None = None) -> Job:
     return Job(
         id="j1",
         title="Some Role",
@@ -48,7 +43,6 @@ def _job(
         salary_min=0,
         salary_max=0,
         posted_date="2026-06-01",
-        required_skills=required_skills or [],
     )
 
 
@@ -89,59 +83,22 @@ def test_education_factor_only_applies_to_internships():
     assert f == 1.0
 
 
-def test_skill_overlap_splits_required_and_preferred():
-    job = _job(
-        SeniorityLevel.SENIOR,
-        skills=["Python", "Go", "Postgres"],
-        required_skills=["Python", "Postgres"],
-    )
-    ov = skill_overlap(["go", "python"], job)
-    assert ov.required == ["Python"]  # matched must-have
-    assert ov.preferred == ["Go"]  # matched nice-to-have, ordered by job.skills
-
-
-def test_skill_overlap_without_required_split_treats_all_as_preferred():
-    # A job predating the required/preferred split must not over-claim required hits.
+def test_skill_overlap_is_explanation_only_and_ordered():
+    # Flat list of the job's skills that appear in the résumé, in job order. Skill
+    # overlap is NOT scored (calibrated has no skill term) — it only explains.
     job = _job(SeniorityLevel.SENIOR, skills=["Python", "Go", "Postgres"])
-    ov = skill_overlap(["go", "python"], job)
-    assert ov.required == []
-    assert ov.preferred == ["Python", "Go"]
+    assert skill_overlap(["go", "python"], job) == ["Python", "Go"]
 
 
-def test_skill_factor_ranks_required_above_preferred():
-    job = _job(
-        SeniorityLevel.SENIOR,
-        skills=["Python", "Go", "Postgres", "Redis"],
-        required_skills=["Python", "Go"],
-    )
-    both = skill_factor(skill_overlap(["python", "go", "postgres", "redis"], job), job)
-    req_only = skill_factor(skill_overlap(["python", "go"], job), job)
-    pref_only = skill_factor(skill_overlap(["postgres", "redis"], job), job)
-    none = skill_factor(skill_overlap(["java"], job), job)
-    assert both == 1.0  # matched everything listed
-    assert both > req_only > pref_only > none
-    assert none == 0.85  # matched nothing → the floor
-
-
-def test_skill_factor_neutral_without_required_split():
-    # Old job with no required/preferred split → fail-open, no skill penalty.
-    job = _job(SeniorityLevel.SENIOR, skills=["Python", "Go"])
-    assert skill_factor(skill_overlap(["python"], job), job) == 1.0
-
-
-def test_required_match_outscores_preferred_only_in_calibrated():
-    # Same cosine and seniority/education: the role whose MUST-HAVES the candidate
-    # hits must score strictly higher than the one where only nice-to-haves match.
+def test_skill_overlap_does_not_affect_calibrated():
+    # Two jobs, same cosine/seniority/education, different skill overlap → identical
+    # calibrated score. Skill overlap must not move the rank.
     prof = ResumeProfile(seniority=SeniorityRank.SENIOR, skills=["Python", "Go"])
-    job_req = _job(
-        SeniorityLevel.SENIOR, skills=["Python", "Redis"], required_skills=["Python"]
-    )
-    job_pref = _job(
-        SeniorityLevel.SENIOR, skills=["Redis", "Go"], required_skills=["Redis"]
-    )
-    a = make_rescorer(prof, lambda _id: job_req)("j1", 0.7).calibrated
-    b = make_rescorer(prof, lambda _id: job_pref)("j1", 0.7).calibrated
-    assert a > b
+    job_match = _job(SeniorityLevel.SENIOR, skills=["Python", "Go"])
+    job_nomatch = _job(SeniorityLevel.SENIOR, skills=["Rust", "Scala"])
+    a = make_rescorer(prof, lambda _id: job_match)("j1", 0.7).calibrated
+    b = make_rescorer(prof, lambda _id: job_nomatch)("j1", 0.7).calibrated
+    assert a == b == 0.7
 
 
 def test_enrolled_student_penalized_on_senior_role():
@@ -190,11 +147,7 @@ def test_overqualified_graduated_cannot_be_strong_even_as_top_result():
 
 def _partial(calibrated: float) -> JobFitPartial:
     return JobFitPartial(
-        calibrated=calibrated,
-        reasons=[],
-        matched_required=[],
-        matched_preferred=[],
-        tier_cap=None,
+        calibrated=calibrated, reasons=[], matched_skills=[], tier_cap=None
     )
 
 
@@ -218,23 +171,14 @@ def test_strong_needs_both_absolute_and_relative():
 
 
 def test_exact_fit_keeps_score_and_can_be_strong():
-    # Matches every listed skill, so skill_factor is 1.0 and calibrated == cosine.
     profile = ResumeProfile(
-        seniority=SeniorityRank.SENIOR,
-        education_status="unknown",
-        skills=["Python", "Go", "Postgres"],
+        seniority=SeniorityRank.SENIOR, education_status="unknown", skills=["Python", "Go"]
     )
     rescore = make_rescorer(
-        profile,
-        lambda _id: _job(
-            SeniorityLevel.SENIOR,
-            skills=["Python", "Go", "Postgres"],
-            required_skills=["Python", "Postgres"],
-        ),
+        profile, lambda _id: _job(SeniorityLevel.SENIOR, skills=["Python", "Go", "Postgres"])
     )
     partial = rescore("j1", 0.8)
-    assert partial.calibrated == 0.8  # seniority 1.0 × education 1.0 × skill 1.0
-    assert partial.matched_required == ["Python", "Postgres"]
-    assert partial.matched_preferred == ["Go"]
+    assert partial.calibrated == 0.8  # seniority 1.0 × education 1.0, skills not scored
+    assert partial.matched_skills == ["Python", "Go"]
     assert partial.tier_cap is None
     assert finalize_fit(partial, ratio=1.0).tier == "strong"

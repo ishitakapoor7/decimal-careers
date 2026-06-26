@@ -34,4 +34,3 @@ def test_job_constructs_with_enum_values():
     assert job.team.value == "engineering"
     assert job.work_mode.value == "hybrid"
     assert job.skills == ["Python", "Postgres"]
-    assert job.required_skills == []  # defaults empty when not specified

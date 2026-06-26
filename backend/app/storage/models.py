@@ -60,11 +60,6 @@ class Job:
     salary_min: int
     salary_max: int
     posted_date: str
-    # Subset of `skills` that are must-haves (the remainder are nice-to-haves). Lets
-    # the fit layer report required-skill matches distinctly from preferred ones, so a
-    # candidate hitting only nice-to-haves isn't shown the same overlap as one hitting
-    # the must-haves. Defaults empty for rows/tests predating the column.
-    required_skills: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

@@ -1,21 +1,17 @@
 """Calibrated hybrid fit: turn raw cosine similarity into a fit score + a tier +
 human-readable reasons, using the structured résumé profile.
 
-    calibrated = cosine * seniority_factor * education_factor * skill_factor
+    calibrated = cosine * seniority_factor * education_factor
 
 The factors are the *structured* signals the embedding can't express on its own.
-`skill_factor` is the subtle one: the embedding already rewards skill overlap, but it
-sees a FLAT skill list — it can't tell a must-have from a nice-to-have. So skill_factor
-carries only that missing distinction: required coverage dominates, preferred
-contributes lightly, in a deliberately gentle band (≥ _SKILL_FLOOR). It adds the
-must-have/nice-to-have *weighting*, rather than re-scoring overlap from scratch (which
-would double-count cosine's undifferentiated skill signal). Making the two layers fully
-orthogonal — drop skills from the embedding so the vector owns semantic fit and the
-structured layer owns exact-skill fit — is the Phase-2 decouple.
+Skill-overlap is computed too, but **for explanation only** — it never enters
+`calibrated`, because `job_to_text` and the résumé embedding both already include the
+skills section, so scoring lexical overlap on top would double-count and bias toward
+keyword-stuffed résumés (and, in practice, makes matching far too acute — diluted
+multi-domain résumés get squeezed out). It owns the *why*, not the *rank*.
 
-Everything is fail-open: a None/"unknown" profile field (or a job with no required
-skills listed) yields factor 1.0, so an unconfident extraction degrades to today's
-pure-similarity behavior.
+Everything is fail-open: a None/"unknown" profile field yields factor 1.0, so an
+unconfident extraction degrades to pure-similarity behavior.
 """
 
 from __future__ import annotations
@@ -45,22 +41,12 @@ _DISTANCE_FACTOR: dict[int, float] = {0: 1.0, 1: 0.92, 2: 0.75, 3: 0.5}
 
 
 @dataclass(frozen=True)
-class SkillOverlap:
-    # Résumé↔job skill matches, split by the job's must-have vs nice-to-have lists so
-    # the explanation can weight required hits — a candidate matching only nice-to-haves
-    # must not read the same as one matching the must-haves.
-    required: list[str]
-    preferred: list[str]
-
-
-@dataclass(frozen=True)
 class JobFitPartial:
     # Pre-finalization: the score is known but the tier isn't (it depends on the
     # candidate's top score across the result set, which the ranker computes).
     calibrated: float
     reasons: list[str]
-    matched_required: list[str]
-    matched_preferred: list[str]
+    matched_skills: list[str]
     tier_cap: Tier | None  # hard ceiling imposed by a penalty (e.g. "possible")
 
 
@@ -68,8 +54,7 @@ class JobFitPartial:
 class JobFit:
     tier: Tier
     reasons: list[str]
-    matched_required: list[str]
-    matched_preferred: list[str]
+    matched_skills: list[str]
 
 
 def job_seniority_rank(job: Job) -> SeniorityRank:
@@ -146,44 +131,12 @@ def education_factor(
     return 1.0, None, None
 
 
-def skill_overlap(profile_skills: list[str], job: Job) -> SkillOverlap:
+def skill_overlap(profile_skills: list[str], job: Job) -> list[str]:
     # Explanation-only: which of the job's listed skills literally appear in the
-    # résumé, split into must-have vs nice-to-have. Order follows the job's lists for
-    # stable display. A job predating the required/preferred split (empty
-    # required_skills) yields all matches as preferred — we never over-claim a
-    # "required" hit we can't substantiate.
+    # résumé. Order follows the job's list for stable display. NOT in the score — the
+    # embedding already rewards skill similarity (see module docstring).
     have = {s.lower() for s in profile_skills}
-    required = {s.lower() for s in job.required_skills}
-    req: list[str] = []
-    pref: list[str] = []
-    for s in job.skills:
-        if s.lower() not in have:
-            continue
-        (req if s.lower() in required else pref).append(s)
-    return SkillOverlap(required=req, preferred=pref)
-
-
-# Skill-coverage band: required coverage dominates, preferred contributes lightly, and
-# the floor keeps the whole factor in [_SKILL_FLOOR, 1.0] — a gentle nudge that ranks
-# "matches the must-haves" above "matches only the nice-to-haves" without letting skill
-# overlap (already in cosine) dominate the score. Coverage is normalized so matching
-# everything the job lists scores 1.0 even when the job has no preferred skills.
-_SKILL_FLOOR = 0.85
-_REQ_WEIGHT = 0.8
-_PREF_WEIGHT = 0.2
-
-
-def skill_factor(overlap: SkillOverlap, job: Job) -> float:
-    n_req = len(job.required_skills)
-    if n_req == 0:
-        return 1.0  # fail-open: no required/preferred split to assess (e.g. old job)
-    n_pref = len(job.skills) - n_req
-    has_pref = n_pref > 0
-    req_cov = len(overlap.required) / n_req
-    pref_cov = (len(overlap.preferred) / n_pref) if has_pref else 0.0
-    denom = _REQ_WEIGHT + (_PREF_WEIGHT if has_pref else 0.0)
-    coverage = (_REQ_WEIGHT * req_cov + _PREF_WEIGHT * pref_cov) / denom
-    return _SKILL_FLOOR + (1.0 - _SKILL_FLOOR) * coverage
+    return [s for s in job.skills if s.lower() in have]
 
 
 def _min_cap(a: Tier | None, b: Tier | None) -> Tier | None:
@@ -200,21 +153,18 @@ def make_rescorer(
     def rescore(job_id: str, cosine: float) -> JobFitPartial:
         job = job_lookup(job_id)
         if job is None:  # defensive: rank a vanished job at raw similarity
-            return JobFitPartial(cosine, [], [], [], None)
+            return JobFitPartial(cosine, [], [], None)
         sf, s_reason, s_cap = seniority_factor(profile.seniority, job_seniority_rank(job))
         ef, e_reason, e_cap = education_factor(profile, job)
-        overlap = skill_overlap(profile.skills, job)
-        skf = skill_factor(overlap, job)  # must-have coverage weighted above nice-to-have
+        matched = skill_overlap(profile.skills, job)  # explanation-only, not scored
         # Only the hard/negative penalty reasons travel as text; the positive skill
-        # match is carried structurally (required vs. preferred) and rendered as
-        # labeled chips, so a plain "Matches N skills" line would both duplicate it
-        # and blur the must-have/nice-to-have distinction this fix exists to make.
+        # overlap is carried as matched_skills and rendered as chips, so a plain
+        # "Matches N skills" sentence would just duplicate it.
         reasons = [r for r in (e_reason, s_reason) if r]
         return JobFitPartial(
-            calibrated=cosine * sf * ef * skf,
+            calibrated=cosine * sf * ef,
             reasons=reasons,
-            matched_required=overlap.required,
-            matched_preferred=overlap.preferred,
+            matched_skills=matched,
             tier_cap=_min_cap(s_cap, e_cap),
         )
 
@@ -260,9 +210,4 @@ def finalize_fit(partial: JobFitPartial, ratio: float) -> JobFit:
     tier = _lower(relative_tier(ratio), absolute_tier(partial.calibrated))
     if partial.tier_cap is not None:
         tier = _lower(tier, partial.tier_cap)
-    return JobFit(
-        tier=tier,
-        reasons=partial.reasons,
-        matched_required=partial.matched_required,
-        matched_preferred=partial.matched_preferred,
-    )
+    return JobFit(tier=tier, reasons=partial.reasons, matched_skills=partial.matched_skills)

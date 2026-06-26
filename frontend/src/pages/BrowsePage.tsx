@@ -28,12 +28,7 @@ const TIER_TO_MATCH: Record<string, { label: string; tone: MatchInfo["tone"] }> 
 
 function matchFromFit(fit: Fit): MatchInfo {
   const base = TIER_TO_MATCH[fit.tier] ?? TIER_TO_MATCH.possible;
-  return {
-    ...base,
-    reasons: fit.reasons,
-    matchedRequired: fit.matched_required,
-    matchedPreferred: fit.matched_preferred,
-  };
+  return { ...base, reasons: fit.reasons, matchedSkills: fit.matched_skills };
 }
 
 // Fallback for a candidate that predates the stored profile (no per-role fit):

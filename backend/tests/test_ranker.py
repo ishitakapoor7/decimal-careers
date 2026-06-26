@@ -80,10 +80,10 @@ def test_rank_with_fit_thresholds_on_calibrated_and_caps_tier():
 
     def rescore(jid: str, cos: float) -> JobFitPartial:
         if jid == "c":
-            return JobFitPartial(cos * 0.05, ["over-qualified"], [], [], "possible")
+            return JobFitPartial(cos * 0.05, ["over-qualified"], [], "possible")
         if jid == "b":
-            return JobFitPartial(cos * 0.95, ["capped"], [], [], "possible")
-        return JobFitPartial(cos, [], ["Python"], [], None)
+            return JobFitPartial(cos * 0.95, ["capped"], [], "possible")
+        return JobFitPartial(cos, [], ["Python"], None)
 
     ids, fits, total = ranker.rank_with_fit(
         _unit([1, 1]), {"a", "b", "c"}, limit=10, offset=0, rescore=rescore
@@ -91,13 +91,13 @@ def test_rank_with_fit_thresholds_on_calibrated_and_caps_tier():
     assert "c" not in ids  # calibrated score fell below the relevance threshold
     assert total == 2
     assert fits["b"].tier == "possible"  # capped despite a near-top score ratio
-    assert "Python" in fits["a"].matched_required
+    assert "Python" in fits["a"].matched_skills
 
 
 def test_rank_with_fit_empty_when_nothing_allowed():
     ranker = Ranker(_index())
     ids, fits, total = ranker.rank_with_fit(
-        _unit([1, 0]), set(), 10, 0, lambda j, c: JobFitPartial(c, [], [], [], None)
+        _unit([1, 0]), set(), 10, 0, lambda j, c: JobFitPartial(c, [], [], None)
     )
     assert ids == [] and fits == {} and total == 0
 

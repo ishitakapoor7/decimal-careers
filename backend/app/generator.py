@@ -533,7 +533,6 @@ def generate(n: int, seed: int = 0) -> list[Job]:
                 country=country,
                 work_mode=work_mode,
                 skills=skills,
-                required_skills=required,
                 company=company,
                 company_about=company_about,
                 summary=summary,
