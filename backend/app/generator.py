@@ -94,6 +94,19 @@ _ROLE_VARIANTS: dict[Team, list[tuple[str, list[str]]]] = {
     ],
 }
 
+def skill_vocabulary() -> set[str]:
+    """The full set of skills any generated job can list. Shared as the lexicon
+    for résumé skill extraction + the explanation-only skill-overlap signal, so
+    "skills we look for in a résumé" stays in lockstep with "skills jobs ask for."
+    """
+    return {
+        skill
+        for variants in _ROLE_VARIANTS.values()
+        for _title, skills in variants
+        for skill in skills
+    }
+
+
 # Embedded role summary (the ONLY generated text that enters the vector). {title}
 # is the variant title; varied phrasing keeps matching from being keyword-trivial.
 _ROLE_SUMMARIES: dict[Team, list[str]] = {
