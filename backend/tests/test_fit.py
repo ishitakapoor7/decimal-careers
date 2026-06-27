@@ -146,9 +146,15 @@ def test_overqualified_graduated_cannot_be_strong_even_as_top_result():
     assert any("enroll" in r.lower() for r in fit.reasons)
 
 
-def _partial(calibrated: float, tier_cap=None) -> JobFitPartial:
+def _partial(calibrated: float, tier_cap=None, matched_skills=None) -> JobFitPartial:
+    # Default to 2 matched skills so the skill-overlap gate doesn't cap a test that's
+    # only exercising the percentile / penalty-cap logic. Tests for the gate itself
+    # pass matched_skills explicitly.
     return JobFitPartial(
-        calibrated=calibrated, reasons=[], matched_skills=[], tier_cap=tier_cap
+        calibrated=calibrated,
+        reasons=[],
+        matched_skills=["Python", "Go"] if matched_skills is None else matched_skills,
+        tier_cap=tier_cap,
     )
 
 
@@ -190,6 +196,26 @@ def test_penalty_cap_lowers_percentile_tier():
 def test_tail_match_is_possible():
     # Deep in the ranking → possible even with a healthy calibrated score.
     assert finalize_fit(_partial(0.60), rank=8, total=10).tier == "possible"
+
+
+def test_skill_gate_strong_needs_two_matched_skills():
+    # A rank-0 role is "strong" by percentile, but the skill gate requires concrete
+    # evidence: ≥2 matched skills for strong, ≥1 for good, none → possible. This is
+    # what stops a buzzword / non-résumé upload (zero real overlap) from being labeled
+    # a strong match just because it tops the relevance-filtered list.
+    two = _partial(0.5, matched_skills=["Python", "Go"])
+    one = _partial(0.5, matched_skills=["Python"])
+    none = _partial(0.5, matched_skills=[])
+    assert finalize_fit(two, rank=0, total=10).tier == "strong"
+    assert finalize_fit(one, rank=0, total=10).tier == "good"
+    assert finalize_fit(none, rank=0, total=10).tier == "possible"
+
+
+def test_skill_gate_only_downgrades():
+    # The gate never promotes: a role deep in the ranking with many matched skills is
+    # still "possible" by percentile — skill overlap can't lift it.
+    rich = _partial(0.5, matched_skills=["Python", "Go", "Postgres", "Rust"])
+    assert finalize_fit(rich, rank=8, total=10).tier == "possible"
 
 
 def test_exact_fit_keeps_score_and_can_be_strong():

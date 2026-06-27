@@ -4,11 +4,16 @@ human-readable reasons, using the structured résumé profile.
     calibrated = cosine * seniority_factor * education_factor
 
 The factors are the *structured* signals the embedding can't express on its own.
-Skill-overlap is computed too, but **for explanation only** — it never enters
-`calibrated`, because `job_to_text` and the résumé embedding both already include the
-skills section, so scoring lexical overlap on top would double-count and bias toward
-keyword-stuffed résumés (and, in practice, makes matching far too acute — diluted
-multi-domain résumés get squeezed out). It owns the *why*, not the *rank*.
+Skill-overlap is computed too but **never enters `calibrated`**, because `job_to_text`
+and the résumé embedding both already include the skills section, so scoring lexical
+overlap on top would double-count and bias toward keyword-stuffed résumés (and, in
+practice, makes matching far too acute — diluted multi-domain résumés get squeezed
+out). So it does not move the *rank*. It does, however, **gate the top tier label**
+(see `finalize_fit`): a "strong" match must share real skills with the role, because
+semantic similarity alone is fooled by buzzword-dense text that sits near many roles
+without any concrete capability overlap — measured on a generic-business blurb that
+out-scored a real senior-engineer résumé yet matched zero of any role's listed skills.
+Gating the label (not the score) backstops that without re-introducing the double-count.
 
 Everything is fail-open: a None/"unknown" profile field yields factor 1.0, so an
 unconfident extraction degrades to pure-similarity behavior.
@@ -205,11 +210,33 @@ def _lower(a: Tier, b: Tier) -> Tier:
     return a if _TIER_ORDER[a] <= _TIER_ORDER[b] else b
 
 
+# Skill-overlap gate on the tier LABEL (not the score). Percentile alone is quality-
+# blind: it crowns the top slice of whatever survives the relevance floor "strong,"
+# so a buzzword-dense or non-résumé upload that embeds near many roles still gets a
+# "strong" — even though it shares no actual skill with any of them. The structured
+# overlap signal is what semantic similarity can't be, so we require concrete skill
+# evidence to reach the top tiers: ≥2 matched skills for "strong," ≥1 for "good."
+# Downgrade-only (combined via _lower with percentile + the penalty cap); it never
+# promotes a role, and it never touches `calibrated`, so the ranking is unchanged.
+_STRONG_MIN_SKILLS = 2
+_GOOD_MIN_SKILLS = 1
+
+
+def skill_gate_ceiling(n_matched: int) -> Tier:
+    if n_matched >= _STRONG_MIN_SKILLS:
+        return "strong"
+    if n_matched >= _GOOD_MIN_SKILLS:
+        return "good"
+    return "possible"
+
+
 def finalize_fit(partial: JobFitPartial, rank: int, total: int) -> JobFit:
     """Tier = the percentile tier (rank among the candidate's relevant matches),
-    lowered by any hard penalty cap so an over-qualified / ineligible role can't top
-    the page even if it ranks high by similarity."""
+    lowered by (a) any hard penalty cap, so an over-qualified / ineligible role can't
+    top the page even if it ranks high by similarity, and (b) the skill-overlap gate,
+    so a role can't be "strong"/"good" without real skill evidence behind it."""
     tier = percentile_tier(rank, total)
     if partial.tier_cap is not None:
         tier = _lower(tier, partial.tier_cap)
+    tier = _lower(tier, skill_gate_ceiling(len(partial.matched_skills)))
     return JobFit(tier=tier, reasons=partial.reasons, matched_skills=partial.matched_skills)

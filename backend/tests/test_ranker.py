@@ -83,7 +83,8 @@ def test_rank_with_fit_thresholds_on_calibrated_and_caps_tier():
             return JobFitPartial(cos * 0.05, ["over-qualified"], [], "possible")
         if jid == "b":
             return JobFitPartial(cos * 0.95, ["capped"], [], "possible")
-        return JobFitPartial(cos, [], ["Python"], None)
+        # ≥2 matched skills so the skill-overlap gate allows the top tier.
+        return JobFitPartial(cos, [], ["Python", "Go"], None)
 
     ids, fits, total = ranker.rank_with_fit(
         _unit([1, 1]), {"a", "b", "c"}, limit=10, offset=0, rescore=rescore
