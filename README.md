@@ -7,7 +7,7 @@ explainable fit layer. Built as a take-home for Decimal AI.
 - **Design & reasoning:** [`docs/specs/design.md`](docs/specs/design.md)
 - **Next steps & scalability:** [`docs/report.md`](docs/report.md)
 
-## What it does
+## Core capabilities
 
 - Browse jobs across teams with hard filters (team, seniority, location, work mode).
 - Upload a résumé (PDF/DOCX) → jobs re-rank within the active filters.
@@ -16,7 +16,7 @@ explainable fit layer. Built as a take-home for Decimal AI.
 - Apply to and save jobs; the candidate sees their applied and saved lists. No login —
   an opaque `candidate_id` is minted on upload and replayed from `localStorage`.
 
-## How it works (one paragraph)
+## How it works 
 
 Jobs and résumés embed into a shared 384-dim space with `intfloat/e5-small-v2` (jobs as
 `passage:`, the résumé chunked, pooled, and embedded as `query:`). A retrieval step
