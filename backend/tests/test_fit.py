@@ -3,6 +3,7 @@ from app.matching.fit import (
     education_factor,
     finalize_fit,
     make_rescorer,
+    percentile_tier,
     seniority_factor,
     skill_overlap,
 )
@@ -140,34 +141,55 @@ def test_overqualified_graduated_cannot_be_strong_even_as_top_result():
     partial = rescore("j1", 0.9)
     assert partial.calibrated < 0.2  # seniority + enrollment penalties stack
     assert partial.tier_cap == "possible"
-    fit = finalize_fit(partial, ratio=1.0)  # even as the candidate's #1
+    fit = finalize_fit(partial, rank=0, total=10)  # even as the candidate's #1
     assert fit.tier == "possible"
     assert any("enroll" in r.lower() for r in fit.reasons)
 
 
-def _partial(calibrated: float) -> JobFitPartial:
+def _partial(calibrated: float, tier_cap=None) -> JobFitPartial:
     return JobFitPartial(
-        calibrated=calibrated, reasons=[], matched_skills=[], tier_cap=None
+        calibrated=calibrated, reasons=[], matched_skills=[], tier_cap=tier_cap
     )
 
 
-def test_mediocre_top_match_is_not_strong_despite_perfect_ratio():
-    # The bug: relative tiering alone makes the candidate's #1 "strong" even when its
-    # absolute fit is weak. The absolute band must keep a 0.32 top out of "strong".
-    assert finalize_fit(_partial(0.32), ratio=1.0).tier == "possible"
+def test_percentile_tier_bands():
+    # Top 10% strong, next 30% good (i.e. up to 40%), the rest possible. With 10
+    # relevant matches: rank 0 strong; ranks 1–3 good; ranks 4–9 possible.
+    assert percentile_tier(0, 10) == "strong"
+    assert percentile_tier(1, 10) == "good"
+    assert percentile_tier(3, 10) == "good"
+    assert percentile_tier(4, 10) == "possible"
+    assert percentile_tier(9, 10) == "possible"
 
 
-def test_absolute_good_band_caps_relative_strong():
-    # 0.48 is a decent-but-not-great absolute fit: relative ratio 1.0 says "strong",
-    # the absolute band says "good" → the conservative min wins.
-    assert finalize_fit(_partial(0.48), ratio=1.0).tier == "good"
+def test_percentile_tier_single_match_is_strong():
+    # A lone relevant match is the candidate's best by definition → strong.
+    assert percentile_tier(0, 1) == "strong"
 
 
-def test_strong_needs_both_absolute_and_relative():
-    # Strong absolute fit but far below the candidate's best → relative caps it.
-    assert finalize_fit(_partial(0.60), ratio=0.5).tier == "possible"
-    # Strong on both axes → strong.
-    assert finalize_fit(_partial(0.60), ratio=0.9).tier == "strong"
+def test_percentile_tier_empty_is_possible():
+    assert percentile_tier(0, 0) == "possible"
+
+
+def test_top_match_is_strong_by_percentile():
+    # The candidate's #1 relevant match (rank 0) with no penalty cap is "strong",
+    # regardless of its absolute calibrated value — tiering is positional now.
+    assert finalize_fit(_partial(0.32), rank=0, total=10).tier == "strong"
+    assert finalize_fit(_partial(0.60), rank=0, total=10).tier == "strong"
+
+
+def test_penalty_cap_lowers_percentile_tier():
+    # A role that ranks in the strong band but carries a penalty cap is held down to
+    # the cap — the over-qualified / ineligible role can't top the page.
+    capped = _partial(0.9, tier_cap="possible")
+    assert finalize_fit(capped, rank=0, total=10).tier == "possible"
+    good_cap = _partial(0.9, tier_cap="good")
+    assert finalize_fit(good_cap, rank=0, total=10).tier == "good"
+
+
+def test_tail_match_is_possible():
+    # Deep in the ranking → possible even with a healthy calibrated score.
+    assert finalize_fit(_partial(0.60), rank=8, total=10).tier == "possible"
 
 
 def test_exact_fit_keeps_score_and_can_be_strong():
@@ -181,4 +203,4 @@ def test_exact_fit_keeps_score_and_can_be_strong():
     assert partial.calibrated == 0.8  # seniority 1.0 × education 1.0, skills not scored
     assert partial.matched_skills == ["Python", "Go"]
     assert partial.tier_cap is None
-    assert finalize_fit(partial, ratio=1.0).tier == "strong"
+    assert finalize_fit(partial, rank=0, total=10).tier == "strong"

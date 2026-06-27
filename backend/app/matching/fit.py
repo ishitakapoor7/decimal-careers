@@ -171,29 +171,32 @@ def make_rescorer(
     return rescore
 
 
-# Absolute calibrated-score bands for tiering. Relative tiering alone (score vs. the
-# candidate's BEST) over-labels when that best is itself weak: every near-top role
-# becomes "strong" by ratio even at a mediocre absolute score. The final tier takes
-# the MORE CONSERVATIVE of the relative and absolute tiers, so a weak absolute fit
-# can't be "strong" no matter how it compares to the rest of the page. Grounded in
-# the seeded catalog's cosine distribution (in-domain roles ≳0.55, adjacent ≳0.45;
-# see app/state.py) and tunable — calibrated == cosine for an unpenalized candidate.
-_ABS_STRONG = 0.55
-_ABS_GOOD = 0.45
+# Tiering is by PERCENTILE within the candidate's own above-threshold (relevant)
+# matches: the top _STRONG_PCT are "strong", the next band up to _GOOD_PCT is "good",
+# the rest "possible". This is deliberately NOT an absolute calibrated-score cutoff.
+# Real résumé-vs-job-text cosines top out in a narrow, résumé-dependent band (~0.37–
+# 0.46 across the résumés we measured), so any fixed threshold either zeroes out a
+# résumé whose natural ceiling is low (everything "possible" again) or over-labels a
+# high one. A ratio-to-best scheme fails the same way in the other direction: a résumé
+# whose matches are tightly bunched (all near the top score) reads as "all strong."
+# Percentile is invariant to both the absolute scale and the bunching, so it yields a
+# stable spread for every résumé. The relevance floor (Ranker.rel_ratio/abs_floor)
+# has already dropped unrelated roles, so "strong" means "top slice of your RELEVANT
+# matches"; the structured penalty cap still keeps an over-qualified / ineligible role
+# out of the top tier no matter where it lands by percentile.
+_STRONG_PCT = 0.10
+_GOOD_PCT = 0.40
 
 
-def relative_tier(ratio: float) -> Tier:
-    if ratio >= 0.85:
+def percentile_tier(rank: int, total: int) -> Tier:
+    """Tier from rank position among the candidate's relevant matches (rank 0 = best).
+    Top 10% strong, next 30% good, rest possible."""
+    if total <= 0:
+        return "possible"
+    frac = rank / total
+    if frac < _STRONG_PCT:
         return "strong"
-    if ratio >= 0.65:
-        return "good"
-    return "possible"
-
-
-def absolute_tier(calibrated: float) -> Tier:
-    if calibrated >= _ABS_STRONG:
-        return "strong"
-    if calibrated >= _ABS_GOOD:
+    if frac < _GOOD_PCT:
         return "good"
     return "possible"
 
@@ -202,12 +205,11 @@ def _lower(a: Tier, b: Tier) -> Tier:
     return a if _TIER_ORDER[a] <= _TIER_ORDER[b] else b
 
 
-def finalize_fit(partial: JobFitPartial, ratio: float) -> JobFit:
-    """Tier = the most conservative of: the relative tier (score vs. the candidate's
-    best), the absolute tier (raw calibrated strength), and any hard penalty cap. The
-    absolute band stops a mediocre top score from making everything 'strong'; the cap
-    stops an over-qualified / ineligible role from topping the page."""
-    tier = _lower(relative_tier(ratio), absolute_tier(partial.calibrated))
+def finalize_fit(partial: JobFitPartial, rank: int, total: int) -> JobFit:
+    """Tier = the percentile tier (rank among the candidate's relevant matches),
+    lowered by any hard penalty cap so an over-qualified / ineligible role can't top
+    the page even if it ranks high by similarity."""
+    tier = percentile_tier(rank, total)
     if partial.tier_cap is not None:
         tier = _lower(tier, partial.tier_cap)
     return JobFit(tier=tier, reasons=partial.reasons, matched_skills=partial.matched_skills)

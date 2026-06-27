@@ -90,7 +90,8 @@ def test_rank_with_fit_thresholds_on_calibrated_and_caps_tier():
     )
     assert "c" not in ids  # calibrated score fell below the relevance threshold
     assert total == 2
-    assert fits["b"].tier == "possible"  # capped despite a near-top score ratio
+    assert fits["a"].tier == "strong"  # rank 0 of the relevant set
+    assert fits["b"].tier == "possible"  # held down by the penalty cap
     assert "Python" in fits["a"].matched_skills
 
 

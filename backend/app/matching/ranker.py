@@ -88,9 +88,11 @@ class Ranker:
         kept = [(jid, p) for jid, p in scored if p.calibrated >= threshold]
         total = len(kept)
         page = kept[offset : offset + limit]
+        # Tier by rank position within the full kept (relevant) set: the i-th item of
+        # this page is globally rank `offset + i` among `total` relevant matches.
         fits = {
-            jid: finalize_fit(p, (p.calibrated / top) if top > 0 else 0.0)
-            for jid, p in page
+            jid: finalize_fit(p, offset + i, total)
+            for i, (jid, p) in enumerate(page)
         }
         return [jid for jid, _ in page], fits, total
 
