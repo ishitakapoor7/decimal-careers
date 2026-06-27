@@ -40,7 +40,7 @@ export function BrowseHeader({
           onClick={() => fileInput.current?.click()}
         >
           <UploadIconSmall />
-          Upload résumé
+          Upload resume
         </button>
         <input
           ref={fileInput}

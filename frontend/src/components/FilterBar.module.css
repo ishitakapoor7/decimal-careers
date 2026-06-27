@@ -17,9 +17,9 @@
 }
 
 .count {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--faint);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
   white-space: nowrap;
 }
 

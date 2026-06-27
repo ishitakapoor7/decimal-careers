@@ -84,7 +84,6 @@ export function JobCard({
           <span className={`${styles.matchLabel} ${styles[`m_${match.tone}`]}`}>
             {match.label}
           </span>
-          <span className={styles.matchSub}>· ranked by résumé fit</span>
         </div>
       )}
     </button>

@@ -155,6 +155,13 @@ export function BrowsePage() {
 
   const totalLabel = `${total.toLocaleString()} role${total === 1 ? "" : "s"}`;
 
+  // Distinguish "your filters are too narrow" from "your résumé has no match in the
+  // catalog at all." With no filters set, an empty personalized result means the
+  // résumé is out-of-domain for every open role (e.g. a mechanical-engineering
+  // résumé against a software/product board) — the relevance floor dropped them all.
+  const hasFilters = Object.values(filters).some((v) => v.length > 0);
+  const emptyFromResume = personalized && !hasFilters;
+
   return (
     <div className={styles.page}>
       <BrowseHeader onUpload={handleUpload} />
@@ -171,7 +178,6 @@ export function BrowsePage() {
             {personalized ? (
               <PersonalizedBanner
                 resumeName={resumeName}
-                total={total}
                 onStartOver={startOver}
               />
             ) : (
@@ -194,9 +200,15 @@ export function BrowsePage() {
               </div>
             ) : jobs.length === 0 ? (
               <div className={styles.stateBox}>
-                <p className={styles.emptyTitle}>No roles match those filters</p>
+                <p className={styles.emptyTitle}>
+                  {emptyFromResume
+                    ? "No roles match your background in our current openings"
+                    : "No roles match those filters"}
+                </p>
                 <p className={styles.emptySub}>
-                  Try removing a filter to widen your search.
+                  {emptyFromResume
+                    ? "Nothing in the catalog lines up with your résumé right now. Check back as new roles are posted."
+                    : "Try removing a filter to widen your search."}
                 </p>
                 <button
                   className={styles.retry}

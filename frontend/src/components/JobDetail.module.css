@@ -176,11 +176,6 @@
   border-radius: 999px;
   background: currentColor;
 }
-.matchBody {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.5;
-}
 .reasonList {
   margin: 2px 0 0;
   padding: 0;
@@ -219,7 +214,10 @@
   font-weight: 600;
   padding: 3px 9px;
   border-radius: 999px;
-  background: var(--teal-tint);
+  /* Solid surface + hairline border so chips stay legible on every callout tone
+     — on a strong (teal) callout a teal-tint chip would blend into the background. */
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
   color: var(--teal-text);
 }
 
@@ -230,26 +228,17 @@
 .callout_teal .matchHeading {
   color: var(--teal-text);
 }
-.callout_teal .matchBody {
-  color: #2f6f66;
-}
 .callout_gold {
   background: var(--gold-tint);
 }
 .callout_gold .matchHeading {
   color: var(--gold-text);
 }
-.callout_gold .matchBody {
-  color: #7d5829;
-}
 .callout_neutral {
   background: var(--chip);
 }
 .callout_neutral .matchHeading {
   color: var(--muted);
-}
-.callout_neutral .matchBody {
-  color: var(--body);
 }
 
 .divider {

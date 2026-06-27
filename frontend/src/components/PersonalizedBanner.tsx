@@ -4,11 +4,9 @@ import styles from "./LeftPane.module.css";
 // The teal "Ranked for your résumé" banner shown once a résumé is uploaded.
 export function PersonalizedBanner({
   resumeName,
-  total,
   onStartOver,
 }: {
   resumeName: string | null;
-  total: number;
   onStartOver: () => void;
 }) {
   return (
@@ -17,11 +15,8 @@ export function PersonalizedBanner({
         <CheckCircle />
       </div>
       <div className={styles.bannerText}>
-        <div className={styles.bannerTitle}>Ranked for your résumé</div>
-        <div className={styles.bannerSub}>
-          {resumeName ? `${resumeName} · ` : ""}
-          {total.toLocaleString()} roles re-sorted by fit
-        </div>
+        <div className={styles.bannerTitle}>Ranked for your resume</div>
+        {resumeName && <div className={styles.bannerSub}>{resumeName}</div>}
       </div>
       <button className={styles.startOver} onClick={onStartOver}>
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden>

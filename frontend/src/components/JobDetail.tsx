@@ -13,14 +13,6 @@ import { Tag } from "./Tag";
 import styles from "./JobDetail.module.css";
 import type { MatchInfo } from "./JobCard";
 
-// Honest, tier-specific callout copy. We speak to how strongly the résumé lines
-// up — without fabricating role-specific reasons (we don't have per-role text).
-const MATCH_BODY: Record<string, string> = {
-  teal: "One of your strongest matches — your background lines up closely with what this role is looking for.",
-  gold: "A solid match — much of your experience overlaps with what this role needs.",
-  neutral: "A reasonable match — some of your experience is relevant to this role.",
-};
-
 function BulletList({ items, tone }: { items: string[]; tone: "coral" | "gold" }) {
   return (
     <div className={styles.bullets}>
@@ -126,11 +118,13 @@ export function JobDetail({
           <div className={`${styles.matchCallout} ${styles[`callout_${match.tone}`]}`}>
             <div className={styles.matchHeading}>
               <span className={styles.matchDot} />
-              {match.label} for your résumé
+              {match.label} for your resume
             </div>
             {/* Reasons are penalty explanations (seniority/education caveats); the
-                positive skill overlap is carried separately as chips below. */}
-            {match.reasons && match.reasons.length > 0 ? (
+                positive skill overlap is carried separately as chips below. The
+                generic tier copy was dropped — it restated the label without adding
+                information. */}
+            {match.reasons && match.reasons.length > 0 && (
               <ul className={styles.reasonList}>
                 {match.reasons.map((r, i) => (
                   <li className={styles.reason} key={i}>
@@ -138,8 +132,6 @@ export function JobDetail({
                   </li>
                 ))}
               </ul>
-            ) : (
-              <p className={styles.matchBody}>{MATCH_BODY[match.tone]}</p>
             )}
             {match.matchedSkills && match.matchedSkills.length > 0 && (
               <div className={styles.skillChips}>
