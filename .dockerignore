@@ -11,3 +11,4 @@ frontend/dist
 **/*.db-shm
 **/*.db-journal
 **/.DS_Store
+**/*.npz

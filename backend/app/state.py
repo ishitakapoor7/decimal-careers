@@ -1,3 +1,7 @@
+from pathlib import Path
+
+import numpy as np
+
 from app.generator import generate
 from app.matching.embedder import Embedder, job_to_text
 from app.matching.index import FaissIndex, JobIndex, NumpyIndex
@@ -8,10 +12,31 @@ from app.storage.models import Job
 
 FAISS_THRESHOLD = 20_000
 
+# Job embeddings precomputed at image-build time (scripts/precompute_embeddings.py)
+# and baked next to this module. Loading them lets boot skip embedding the whole
+# catalog with MiniLM on CPU — that synchronous startup step otherwise blows past
+# the deploy healthcheck on a CPU-limited container. Absent in dev/tests, where
+# the catalog is small and encoding at boot is cheap, so we fall back to encoding.
+_PRECOMPUTED_VECTORS = Path(__file__).resolve().parent / "precomputed_vectors.npz"
+
+
+def _load_precomputed_vectors(jobs: list[Job]) -> np.ndarray | None:
+    if not _PRECOMPUTED_VECTORS.exists():
+        return None
+    data = np.load(_PRECOMPUTED_VECTORS)
+    by_id = {str(i): v for i, v in zip(data["ids"], data["vectors"])}
+    # Only trust the file if it covers exactly this catalog (same generate(n, seed)).
+    # Any drift — a regenerated or hand-edited DB — falls back to live encoding.
+    if {j.id for j in jobs} != set(by_id):
+        return None
+    return np.stack([by_id[j.id] for j in jobs]).astype(np.float32)
+
 
 def build_index(jobs: list[Job], embedder: Embedder) -> JobIndex:
     index: JobIndex = FaissIndex() if len(jobs) >= FAISS_THRESHOLD else NumpyIndex()
-    vectors = embedder.encode([job_to_text(j) for j in jobs])
+    vectors = _load_precomputed_vectors(jobs)
+    if vectors is None:
+        vectors = embedder.encode([job_to_text(j) for j in jobs])
     index.add([j.id for j in jobs], vectors)
     return index
 

@@ -34,6 +34,10 @@ ENV HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1
 
 COPY backend/ ./
+# Precompute the seeded catalog's job embeddings now (cached model, offline) so
+# first boot loads vectors instead of embedding 500 jobs on CPU — that keeps
+# startup within the healthcheck window. Baked to app/precomputed_vectors.npz.
+RUN python -m scripts.precompute_embeddings
 COPY --from=frontend /app/frontend/dist ./frontend_dist
 
 EXPOSE 8000

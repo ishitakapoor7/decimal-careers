@@ -225,3 +225,6 @@ docs/
 *.db-wal
 *.db-shm
 *.db-journal
+
+# Precomputed embedding artifacts (generated at build, never committed)
+*.npz
