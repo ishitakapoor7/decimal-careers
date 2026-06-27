@@ -60,12 +60,9 @@ docker build -t career-site .
 docker run -p 8000:8000 career-site  # http://localhost:8000
 ```
 
-## Deploy
+## Deployed
 
-Railway, from the same Dockerfile (`railway.json`). The model and job vectors are baked at
-build time, so cold start is just model-load + seeding — fast enough for the `/health`
-healthcheck. One uvicorn worker: the in-memory index, job map, and SQLite connection are
-per-process. Railway injects `$PORT`.
+The repository is deployed at - https://decimal-careers.up.railway.app/
 
 ## Layout
 
