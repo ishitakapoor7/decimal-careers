@@ -1,6 +1,13 @@
 from datetime import date
 
-from app.resume.profile import HeuristicExtractor, ResumeProfile, SeniorityRank
+from app.resume.profile import (
+    HeuristicExtractor,
+    ResumeProfile,
+    SeniorityRank,
+    profile_from_json,
+    profile_to_json,
+)
+from app.storage.models import Team
 
 # Pin "today" so education status (expected vs. past graduation) is deterministic.
 _EX = HeuristicExtractor(today=date(2026, 6, 26))
@@ -63,6 +70,80 @@ def test_skills_matched_from_shared_lexicon():
     assert {"Python", "Postgres", "React"} <= set(skills)
     # Word-boundary: "Go" must not be matched inside "Google".
     assert "Go" not in _EX.extract("Worked at Google on search.").skills
+
+
+def test_generic_words_are_not_credited_as_skills():
+    # Generic business words appear in any résumé's prose and false-match across
+    # domains (a backend résumé "positioning our platform" should NOT read as having
+    # the marketing skill "Positioning"); they're excluded so the skill penalty can
+    # still demote off-domain roles. Real, specific skills are still credited.
+    p = _EX.extract(
+        "Led cross-functional research on positioning our AI platform integrations, "
+        "built with Python and PyTorch."
+    )
+    assert {"Python", "PyTorch"} <= set(p.skills)
+    assert not (
+        {"Cross-functional", "Research", "Positioning", "Platform", "Integrations"}
+        & set(p.skills)
+    )
+
+
+def test_seniority_keyword_in_prose_is_not_a_title():
+    # "staff"/"senior" appear constantly in ordinary résumé prose and must NOT inflate
+    # seniority unless they head an actual title (followed by a role noun).
+    p = _EX.extract(
+        "Supported faculty and staff with outreach. Completed a Senior Capstone "
+        "Project. Collaborated with senior leadership on logistics."
+    )
+    assert p.seniority is None  # no "<level> <role-noun>" title anywhere
+
+
+def test_seniority_title_with_role_noun_is_credited():
+    assert _EX.extract("Staff Software Engineer at Acme.").seniority == (
+        SeniorityRank.STAFF
+    )
+    assert _EX.extract("Senior Data Scientist, 2020-2024.").seniority == (
+        SeniorityRank.SENIOR
+    )
+
+
+def test_internship_seeker_is_capped_to_entry():
+    # Even with a stray "senior engineers" prose mention, an explicit internship
+    # seeker is early-career — capped to ENTRY, never read as senior.
+    p = _EX.extract(
+        "Incoming M.S. Mechanical Engineering Student. Seeking summer internship. "
+        "Collaborated with senior engineers on a design project."
+    )
+    assert p.seniority == SeniorityRank.ENTRY
+
+
+def test_domain_inferred_from_specific_skills():
+    # PyTorch/Kubernetes/Spark are engineering-only skills → confident ENGINEERING.
+    p = _EX.extract("Built models with Python, PyTorch, Spark, and Kubernetes.")
+    assert p.domain == Team.ENGINEERING
+
+
+def test_domain_is_none_when_skills_are_thin_or_cross_domain():
+    # SQL (4 teams) + Excel (finance/ops) carry no distinctive domain signal → None
+    # (fail-open: no domain penalty rather than a confident wrong guess).
+    p = _EX.extract("Comfortable with SQL and Excel for reporting.")
+    assert p.domain is None
+
+
+def test_profile_json_roundtrip_includes_domain():
+    # The stored-then-ranked path (main.upload → main.list_jobs) persists the profile
+    # as JSON; domain must survive the round-trip or the team-affinity factor goes dead.
+    p = ResumeProfile(
+        seniority=SeniorityRank.SENIOR, total_years=6.0, education_status="graduated",
+        grad_year=2019, skills=["Python", "PyTorch"], domain=Team.ENGINEERING,
+    )
+    assert profile_from_json(profile_to_json(p)) == p
+
+
+def test_profile_json_tolerates_missing_domain():
+    # A profile stored before the domain field existed deserializes with domain=None.
+    legacy = '{"seniority": 3, "education_status": "graduated", "skills": ["Python"]}'
+    assert profile_from_json(legacy).domain is None
 
 
 def test_fail_open_on_garbage():

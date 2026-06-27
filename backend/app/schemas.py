@@ -2,10 +2,8 @@ from pydantic import BaseModel
 
 
 class FitOut(BaseModel):
-    # Calibrated fit, present only on the personalized /jobs path. The raw score is
-    # deliberately NOT exposed (avoids false precision); the frontend renders the
-    # tier + reasons. matched_skills powers the positive "matches these skills" chip
-    # (explanation-only — skill overlap is not part of the score).
+    # Calibrated fit, personalized path only. The raw score is not exposed (avoids
+    # false precision) — the frontend renders the tier, reasons, and matched-skills chip.
     tier: str
     reasons: list[str] = []
     matched_skills: list[str] = []

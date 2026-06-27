@@ -9,10 +9,8 @@ from app.storage.models import (
     WorkMode,
 )
 
-# Role variants: each team is a family of (title, skill-subpool) sub-specialties.
-# A job picks ONE variant, so its title and skills are internally coherent and
-# the team becomes a set of related sub-clusters (backend vs ML Engineering),
-# which lets a resume match the right *kind* of role, not just the right team.
+# Each team is a family of (title, skill-subpool) variants. A job picks ONE, so its
+# title and skills stay coherent and a resume can match the right KIND of role.
 _ROLE_VARIANTS: dict[Team, list[tuple[str, list[str]]]] = {
     Team.ENGINEERING: [
         ("Backend Engineer", ["Python", "Go", "Postgres", "Redis", "Kubernetes",
@@ -95,16 +93,26 @@ _ROLE_VARIANTS: dict[Team, list[tuple[str, list[str]]]] = {
 }
 
 def skill_vocabulary() -> set[str]:
-    """The full set of skills any generated job can list. Shared as the lexicon
-    for résumé skill extraction + the explanation-only skill-overlap signal, so
-    "skills we look for in a résumé" stays in lockstep with "skills jobs ask for."
-    """
+    """Every skill any generated job can list — the shared lexicon for résumé skill
+    extraction, kept in lockstep with what jobs ask for."""
     return {
         skill
         for variants in _ROLE_VARIANTS.values()
         for _title, skills in variants
         for skill in skills
     }
+
+
+def skills_by_team() -> dict[str, set[Team]]:
+    """Each skill → the teams that list it, for inferring a résumé's domain from the
+    same lexicon. A skill on many teams (SQL) is a weak signal; one on a single team
+    (PyTorch) is strong — the caller weights by team count."""
+    out: dict[str, set[Team]] = {}
+    for team, variants in _ROLE_VARIANTS.items():
+        for _title, skills in variants:
+            for skill in skills:
+                out.setdefault(skill, set()).add(team)
+    return out
 
 
 # Embedded role summary (the ONLY generated text that enters the vector). {title}
@@ -248,9 +256,8 @@ _BENEFITS: list[str] = [
 ]
 
 # --- Prose qualification pools -------------------------------------------------
-# Qualifications render as full sentences, not bare skill words. Skill NAMES are
-# still woven in verbatim (so the JD stays concrete and scannable), but the vector
-# never sees this prose — only `summary` + `skills` are embedded.
+# Qualifications render as full sentences with skill names woven in. This prose is
+# display-only — only `summary` + `skills` are embedded.
 
 # Domain phrase that fits grammatically after "experience ...".
 _TEAM_DOMAIN: dict[Team, str] = {
@@ -263,11 +270,9 @@ _TEAM_DOMAIN: dict[Team, str] = {
     Team.OPERATIONS: "running business operations",
 }
 
-# Most internships require current enrollment, but a minority are open to recent
-# grads too — uncommon, not impossible. INTERN_OPEN_TO_GRADS is the phrase the
-# education gate (fit.job_requires_enrollment) keys off: its presence in a JD means
-# "enrollment not required," so an already-graduated candidate isn't penalized for
-# that role. The JD text stays the single source of truth — no schema flag.
+# Phrase fit.job_requires_enrollment keys off: its presence in a JD means enrollment
+# isn't required, so a graduated candidate isn't penalized. JD text is the source of
+# truth — no schema flag. Most internships omit it; a minority include it.
 INTERN_OPEN_TO_GRADS = "open to current students and recent grads"
 _INTERN_ENROLLED_LINE = (
     "You're currently enrolled in a degree program and eager to get hands-on "
@@ -278,9 +283,8 @@ _INTERN_OPEN_LINE = (
     "experience {domain}."
 )
 
-# Experience line, keyed to seniority. Display-only — does NOT reintroduce a
-# filterable min_years_exp; the years are derived from seniority_level for reading.
-# Intern is handled separately (see _experience_line) so it can vary enrollment.
+# Experience line per seniority (display-only). Intern is handled separately in
+# _experience_line so it can vary enrollment.
 _EXPERIENCE_LINE: dict[SeniorityLevel, str] = {
     SeniorityLevel.ENTRY: "You have 0–2 years of experience {domain}.",
     SeniorityLevel.MID: "You have 3+ years of hands-on experience {domain}.",
@@ -375,9 +379,8 @@ _ROLE_ELABORATION: dict[Team, str] = {
     Team.OPERATIONS: "You'll design the processes that keep the business running smoothly.",
 }
 
-# Title prefix per level. "Junior" sits at MID (3+ yrs), not ENTRY: an entry-level
-# role is 0–2 yrs, a junior role is a step up into mid-tier — so the title and the
-# experience line below never contradict each other.
+# Title prefix per level. "Junior" sits at MID, not ENTRY, so the title and the
+# experience line never contradict each other.
 _LEVEL_PREFIX: dict[SeniorityLevel, str] = {
     SeniorityLevel.INTERN: "Intern,",
     SeniorityLevel.ENTRY: "Entry-level",

@@ -1,6 +1,6 @@
 import numpy as np
 
-from app.matching.fit import JobFitPartial
+from app.matching.fit import BASE_MAX, BASE_MIN, JobFitPartial
 from app.matching.index import NumpyIndex
 from app.matching.ranker import Ranker
 
@@ -72,34 +72,33 @@ def test_threshold_is_relative_to_the_best_allowed_match():
     assert total == 1
 
 
-def test_rank_with_fit_thresholds_on_calibrated_and_caps_tier():
-    # Query [1,1]: cosines a=c=0.707-ish... actually a=b=0.707, c=1.0. Penalties:
-    # "c" crushed below threshold; "b" survives but is hard-capped to "possible"
-    # despite a high score ratio; "a" is a clean strong match with skills.
-    ranker = Ranker(_index(), rel_ratio=0.6, abs_floor=0.0)
+def test_rank_with_fit_sorts_by_base_thresholds_and_tiers():
+    # ONE score drives order and tier. rescore hands back a fixed weighted `base`
+    # per job; rank_with_fit sorts by it, maps to 0–5, tiers by absolute cutoffs,
+    # and drops anything below the "possible" floor. Bases are expressed against the
+    # anchors so the test survives a retune: BASE_MAX → 5.0 (strong), mid-band →
+    # ~3.0 (good), below BASE_MIN → dropped.
+    ranker = Ranker(_index())
+    span = BASE_MAX - BASE_MIN
+    bases = {"a": BASE_MAX, "b": BASE_MIN + 0.6 * span, "c": BASE_MIN - 0.05}
 
     def rescore(jid: str, cos: float) -> JobFitPartial:
-        if jid == "c":
-            return JobFitPartial(cos * 0.05, ["over-qualified"], [], "possible")
-        if jid == "b":
-            return JobFitPartial(cos * 0.95, ["capped"], [], "possible")
-        # ≥2 matched skills so the skill-overlap gate allows the top tier.
-        return JobFitPartial(cos, [], ["Python", "Go"], None)
+        return JobFitPartial(bases[jid], [], ["Python", "Go"])
 
     ids, fits, total = ranker.rank_with_fit(
-        _unit([1, 1]), {"a", "b", "c"}, limit=10, offset=0, rescore=rescore
+        _unit([1, 0]), {"a", "b", "c"}, limit=10, offset=0, rescore=rescore
     )
-    assert "c" not in ids  # calibrated score fell below the relevance threshold
+    assert ids == ["a", "b"]  # sorted by base; "c" dropped below the floor
     assert total == 2
-    assert fits["a"].tier == "strong"  # rank 0 of the relevant set
-    assert fits["b"].tier == "possible"  # held down by the penalty cap
-    assert "Python" in fits["a"].matched_skills
+    assert "c" not in fits
+    assert fits["a"].tier == "strong" and fits["a"].score == 5.0
+    assert fits["b"].tier == "good"
 
 
 def test_rank_with_fit_empty_when_nothing_allowed():
     ranker = Ranker(_index())
     ids, fits, total = ranker.rank_with_fit(
-        _unit([1, 0]), set(), 10, 0, lambda j, c: JobFitPartial(c, [], [], None)
+        _unit([1, 0]), set(), 10, 0, lambda j, c: JobFitPartial(c, [], [])
     )
     assert ids == [] and fits == {} and total == 0
 

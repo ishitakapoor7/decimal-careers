@@ -23,10 +23,6 @@ def parse_resume(filename: str, data: bytes) -> str:
         parser = _parse_docx
     else:
         raise ValueError(f"Unsupported resume format: {filename}")
-    # Normalize library failures (pypdf.PdfStreamError, zipfile.BadZipFile, …) on
-    # a corrupt/mismatched file into one domain ValueError, so the API layer's
-    # single `except ValueError` translates BOTH "bad extension" and "bad bytes"
-    # into a clean 400 instead of leaking a 500.
     try:
         text = parser(data)
     except Exception as exc:  # noqa: BLE001 - deliberate boundary normalization

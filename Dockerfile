@@ -27,8 +27,11 @@ ENV PYTHONUNBUFFERED=1 \
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 # Bake the embedding model into the image so the first request needs no network
-# download and cold start is just model load + seeding, not a ~80MB fetch.
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
+# download and cold start is just model load + seeding, not a ~130MB fetch. Must
+# match the model in app/matching/embedder.py (e5-small-v2: asymmetric query/passage
+# retrieval, 512-token context — chosen so real multi-section résumés embed well
+# while still fitting a 1GB container).
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('intfloat/e5-small-v2')"
 
 # The model is now in the image's HF cache. Go fully offline for the runtime so
 # SentenceTransformer loads straight from that cache and NEVER contacts the HF

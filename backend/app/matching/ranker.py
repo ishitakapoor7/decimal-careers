@@ -19,30 +19,14 @@ class Ranker:
     ) -> None:
         self._index = index
         self._search_k = search_k
-        self._cache_size = cache_size
-        # Relevance cutoff. A job is kept only if its similarity is at least
-        # max(rel_ratio * top, abs_floor), where `top` is the best score among
-        # the allowed jobs. rel_ratio drops roles far weaker than the candidate's
-        # strongest match (the core "don't show unrelated teams" behavior);
-        # abs_floor guards the degenerate case where even the top match is weak.
-        # Both default to 0.0 (no filtering) so the ranker's ordering/pagination
-        # semantics are unchanged unless a caller opts in (see app/state.py).
-        self._rel_ratio = rel_ratio
+        self._cache_size = cache_size 
+        self._rel_ratio = rel_ratio # relevance cutoff
         self._abs_floor = abs_floor
-        # Per-candidate cache of the filter-independent similarity search, so
-        # paging and re-filtering for the same candidate reuse a single
-        # index.search (the expensive step). In-process is fine single-instance;
-        # the multi-instance version is a shared store (e.g. Redis) keyed the same
-        # way. Jobs are static per boot, so only a re-upload (invalidate) stales
-        # an entry.
+        # Per candidate cache of the filter-independent similarity search, so
+        # paging and refiltering for the same candidate reuses a single
+        # index.search (the expensive step)
         self._cache: OrderedDict[str, list[tuple[str, float]]] = OrderedDict()
-        # FastAPI's sync endpoints run in a threadpool, so two concurrent requests
-        # (even for different candidates, even with a single worker process) can
-        # call `_search` at the same instant. `OrderedDict.move_to_end`/`popitem`
-        # mutate internal links and are NOT safe under concurrent calls from
-        # separate threads — this lock makes cache reads/writes atomic. It only
-        # guards the dict bookkeeping, not `index.search` itself, so one slow
-        # search doesn't block other candidates' cache hits.
+        # lock to make cache reads/writes atomic
         self._cache_lock = threading.Lock()
 
     def rank_ids(
@@ -54,8 +38,6 @@ class Ranker:
         cache_key: str | None = None,
     ) -> tuple[list[str], int]:
         ranked = self._search(query, cache_key)
-        # Keep scores so we can apply the relevance cutoff. `ranked` is sorted by
-        # descending score, so the first surviving entry is the allowed maximum.
         allowed = [(job_id, score) for job_id, score in ranked if job_id in allowed_ids]
         kept = self._above_threshold(allowed)
         total = len(kept)
@@ -70,31 +52,23 @@ class Ranker:
         rescore: Callable[[str, float], JobFitPartial],
         cache_key: str | None = None,
     ) -> tuple[list[str], dict[str, JobFit], int]:
-        """Personalized ranking with the calibrated fit layer. `rescore` turns each
-        (job_id, cosine) into a JobFitPartial; the relevance threshold then bites on
-        the CALIBRATED score (so an over-qualified / ineligible role drops out), and
-        the surviving tier comes from the calibrated score, not rank position."""
+        """personalized ranking with the calibrated fit layer. rescore turns each
+        (job_id, cosine) into a JobFitPartial carrying the weighted base."""
         ranked = self._search(query, cache_key)
         scored = [
             (job_id, rescore(job_id, score))
             for job_id, score in ranked
             if job_id in allowed_ids
         ]
-        scored.sort(key=lambda t: t[1].calibrated, reverse=True)
-        if not scored:
-            return [], {}, 0
-        top = scored[0][1].calibrated
-        threshold = max(self._rel_ratio * top, self._abs_floor)
-        kept = [(jid, p) for jid, p in scored if p.calibrated >= threshold]
+        scored.sort(key=lambda t: t[1].base, reverse=True)
+        kept: list[tuple[str, JobFit]] = []
+        for job_id, partial in scored:
+            fit = finalize_fit(partial)
+            if fit is not None:
+                kept.append((job_id, fit))
         total = len(kept)
         page = kept[offset : offset + limit]
-        # Tier by rank position within the full kept (relevant) set: the i-th item of
-        # this page is globally rank `offset + i` among `total` relevant matches.
-        fits = {
-            jid: finalize_fit(p, offset + i, total)
-            for i, (jid, p) in enumerate(page)
-        }
-        return [jid for jid, _ in page], fits, total
+        return [jid for jid, _ in page], {jid: fit for jid, fit in page}, total
 
     def _above_threshold(self, allowed: list[tuple[str, float]]) -> list[str]:
         if not allowed:
@@ -109,18 +83,15 @@ class Ranker:
         if cache_key is not None:
             with self._cache_lock:
                 if cache_key in self._cache:
-                    self._cache.move_to_end(cache_key)  # LRU touch
+                    self._cache.move_to_end(cache_key)  # LRU 
                     return self._cache[cache_key]
-        # The actual search runs outside the lock: it's the expensive step, and
-        # holding the lock across it would serialize unrelated candidates' cache
-        # hits behind whichever search is currently running.
         ranked = self._index.search(query, self._search_k)
         if cache_key is not None:
             with self._cache_lock:
                 self._cache[cache_key] = ranked
                 self._cache.move_to_end(cache_key)
                 while len(self._cache) > self._cache_size:
-                    self._cache.popitem(last=False)  # evict least-recently-used
+                    self._cache.popitem(last=False)  # evict 
         return ranked
 
     def invalidate(self, cache_key: str) -> None:

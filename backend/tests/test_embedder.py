@@ -59,22 +59,42 @@ def test_job_to_text_embeds_summary_not_prose_qualifications():
     assert "equal opportunity" not in text
 
 
-def test_encode_shape_and_normalized():
+def test_encode_documents_shape_and_normalized():
     emb = Embedder()
-    vecs = emb.encode(["python backend engineer", "marketing seo specialist"])
+    vecs = emb.encode_documents(["python backend engineer", "marketing seo specialist"])
     assert vecs.shape == (2, 384)
     assert vecs.dtype == np.float32
     norms = np.linalg.norm(vecs, axis=1)
     assert np.allclose(norms, 1.0, atol=1e-3)
 
 
-def test_related_text_scores_higher_than_unrelated():
+def test_encode_query_returns_single_unit_vector():
     emb = Embedder()
-    resume = emb.encode(
-        ["experienced python backend engineer, postgres, kubernetes"]
-    )[0]
-    backend = emb.encode(
+    vec = emb.encode_query("experienced python backend engineer, postgres, kubernetes")
+    assert vec.shape == (384,)
+    assert vec.dtype == np.float32
+    assert np.allclose(np.linalg.norm(vec), 1.0, atol=1e-3)
+
+
+def test_encode_query_reads_whole_resume_not_just_first_chunk():
+    # A long résumé is chunked + mean-pooled, so content past the first chunk still
+    # shapes the vector — the fix for the model truncating a 1500-token résumé at its
+    # token cap. Distinct tail content must move the pooled vector.
+    emb = Embedder()
+    head = " ".join(["administrative office coordinator scheduling"] * 80)  # many chunks
+    tail = "distributed systems kubernetes rust compiler engineer"
+    whole = emb.encode_query(head + " " + tail)
+    head_only = emb.encode_query(head)
+    assert float(whole @ head_only) < 0.999
+
+
+def test_related_text_scores_higher_than_unrelated():
+    # Asymmetric: résumé via encode_query (query: prefix), jobs via encode_documents
+    # (passage: prefix) — the way the live matching path embeds each side.
+    emb = Embedder()
+    resume = emb.encode_query("experienced python backend engineer, postgres, kubernetes")
+    backend = emb.encode_documents(
         ["backend software engineer using python and postgres"]
     )[0]
-    marketing = emb.encode(["seo content marketing manager, email campaigns"])[0]
+    marketing = emb.encode_documents(["seo content marketing manager, email campaigns"])[0]
     assert float(resume @ backend) > float(resume @ marketing)

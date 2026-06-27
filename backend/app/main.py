@@ -40,14 +40,8 @@ _state: AppState | None = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Build the singleton app state once, before the server accepts traffic.
-
-    Startup runs single-threaded, so there is no initialization race: by the
-    time any threadpool worker handles a request, _state is fully built.
-
-    CAREER_DB_PATH points at a file so uploaded resumes and applications
-    survive a restart; it defaults to ":memory:" for ephemeral local runs.
-    """
+    """Build the singleton app state once, before traffic. CAREER_DB_PATH points at a
+    file so uploads survive a restart; defaults to ":memory:" for local runs."""
     global _state
     _state = AppState.seeded(db_path=os.environ.get("CAREER_DB_PATH", ":memory:"))
     yield
@@ -125,18 +119,15 @@ def list_jobs(
     if candidate and candidate.resume_text:
         try:
             allowed = state.db.job_ids_matching(filters)
-            # Reuse the vector computed at upload; only re-embed if this candidate
-            # predates the stored-vector column (defensive fallback).
+            # Reuse the vector from upload; re-embed only for candidates predating it.
             if candidate.resume_vector is not None:
                 query = np.frombuffer(candidate.resume_vector, dtype=np.float32)
             else:
-                query = state.embedder.encode([candidate.resume_text])[0]
+                query = state.embedder.encode_query(candidate.resume_text)
             profile = profile_from_json(candidate.profile)
             if profile is not None:
-                # Calibrated fit path: re-rank by cosine × seniority × education and
-                # attach the tier + reasons. The structured signals fix the "VP gets
-                # a Strong-match intern role" / "graduated matches enrollment-only
-                # role" failures that pure similarity can't see.
+                # Calibrated fit path: re-rank by the weighted base and attach tier +
+                # reasons, applying the structured signals pure similarity can't see.
                 rescore = make_rescorer(profile, state.jobs_by_id.get)
                 ids, fits, total = state.ranker.rank_with_fit(
                     query, allowed, limit, offset, rescore, cache_key=candidate_id
@@ -165,10 +156,8 @@ def list_jobs(
             items = [_to_out(job) for i in ids if (job := state.db.get_job(i))]
             return JobsPage(items=items, total=total, limit=limit, offset=offset)
         except Exception:
-            # Personalization is an enhancement over a working base, not a hard
-            # dependency. If the ranking layer fails (index / embedder / a future
-            # remote vector store), degrade to plain browse instead of 500 — the
-            # catalog still serves. Logged so the failure is visible, not silent.
+            # Personalization is an enhancement, not a hard dependency: on any ranking
+            # failure, degrade to plain browse instead of 500. Logged, not silent.
             logger.exception(
                 "personalized ranking failed for candidate %s; "
                 "falling back to plain browse",
@@ -199,23 +188,19 @@ def upload_resume(
         text = parse_resume(file.filename or "", data)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    # A file we can't extract any text from (e.g. a scanned/image PDF) is a dead
-    # end for personalization. Signal it explicitly rather than silently storing
-    # an empty candidate and falling back to plain browse.
+    # No extractable text (e.g. a scanned image PDF) is a dead end for ranking —
+    # signal it rather than store an empty candidate.
     if not text:
         raise HTTPException(
             status_code=400,
             detail="Could not extract any text from the file. It may be a "
             "scanned image; please upload a text-based PDF or DOCX.",
         )
-    # Mint an opaque ID on first upload; reuse the client's stored one when a
-    # returning candidate replaces their resume. Pseudonymous, not authenticated.
+    # Reuse the client's id when a returning candidate replaces their resume.
     cid = candidate_id or str(uuid.uuid4())
-    # Embed once here so the personalized /jobs path (incl. every pagination
-    # click) reuses the stored vector instead of re-running the model.
-    vector = state.embedder.encode([text])[0].tobytes()
-    # Extract the structured profile once too (seniority/education/skills), so the
-    # calibrated fit layer reuses it on every /jobs call instead of re-parsing.
+    # Embed and extract the profile once here so every /jobs call (incl. pagination)
+    # reuses them instead of re-running the model / re-parsing.
+    vector = state.embedder.encode_query(text).tobytes()
     profile = profile_to_json(state.extractor.extract(text))
     state.db.insert_candidate(
         Candidate(
@@ -226,8 +211,7 @@ def upload_resume(
             profile=profile,
         )
     )
-    # Bust any cached ranking so the new resume re-ranks on the next /jobs call.
-    state.ranker.invalidate(cid)
+    state.ranker.invalidate(cid)  # bust cached ranking so the new resume re-ranks
     return {"candidate_id": cid, "char_count": len(text)}
 
 
@@ -284,8 +268,8 @@ def unsave_job(
 def list_saved(
     candidate_id: str, state: AppState = Depends(get_state)
 ) -> dict[str, list]:
-    # Return full jobs (not just ids) so the Saved tab renders cards directly,
-    # each tagged with when it was saved (newest first, mirroring list_saved).
+    # Full jobs (not just ids) so the Saved tab renders cards directly, each tagged
+    # with when it was saved.
     saved = state.db.list_saved(candidate_id)
     items = []
     for s in saved:
@@ -298,24 +282,19 @@ def list_saved(
 
 
 # --- Static frontend (single-origin deploy) ------------------------------------
-# When FRONTEND_DIST points at a built Vite bundle, serve it from this same app so
-# the SPA and the API share one origin (no CORS). Registered AFTER every API route,
-# so /jobs, /upload-resume, etc. always win; only unmatched paths fall through to
-# the SPA. Unset in tests/local dev (Vite's own server proxies /api), so this block
-# is a deploy-only no-op there.
+# Serve the built Vite bundle from this app so the SPA and API share one origin (no
+# CORS). Registered AFTER every API route so they win; unset in tests/dev (no-op).
 _FRONTEND_DIST = os.environ.get("FRONTEND_DIST")
 if _FRONTEND_DIST and Path(_FRONTEND_DIST).is_dir():
     _dist = Path(_FRONTEND_DIST).resolve()
-    # Hashed Vite assets get a real static mount (proper caching/ETag handling).
     _assets = _dist / "assets"
     if _assets.is_dir():
         app.mount("/assets", StaticFiles(directory=_assets), name="assets")
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa(full_path: str) -> FileResponse:
-        # Serve a real file when one exists (favicon, etc.); otherwise hand back
-        # index.html so client-side routes like /activity survive a hard refresh.
-        # Path is resolved and confined to _dist to block traversal (../../etc).
+        # Serve a real file when one exists, else index.html so client-side routes
+        # survive a hard refresh. Confined to _dist to block path traversal.
         target = (_dist / full_path).resolve()
         if full_path and target.is_file() and _dist in target.parents:
             return FileResponse(target)

@@ -44,11 +44,8 @@ class Job:
     country: str
     work_mode: WorkMode
     skills: list[str]
-    # Display + signal fields. `summary` is the ONLY generated text that is
-    # embedded (via job_to_text); `skills` also feeds the vector. Everything else
-    # here is display-only prose the frontend styles section-by-section — see the
-    # prose-qualifications design note. Qualifications are full sentences, not
-    # bare skill words, so the JD reads like a real posting.
+    # Only `summary` (+ `skills`) is embedded via job_to_text; the rest is display-only
+    # prose the frontend styles section-by-section.
     company: str
     company_about: str
     summary: str
@@ -67,13 +64,11 @@ class Candidate:
     id: str
     resume_text: str
     created_at: str
-    # Resume embedding, persisted as raw float32 bytes so pagination/re-rank
-    # reuses it instead of re-running the model on every request. Optional:
-    # candidates predating this column (or with no extractable text) have None.
+    # Resume embedding as raw float32 bytes, reused across pagination/re-rank. None for
+    # candidates predating the column or with no extractable text.
     resume_vector: bytes | None = None
-    # Structured signal extracted from the résumé (seniority/education/skills),
-    # serialized as JSON. Extracted once at upload and reused on every /jobs call
-    # to drive the calibrated fit score. None for candidates predating the column.
+    # Structured profile (seniority/education/skills/domain) as JSON, driving the fit
+    # score. None for candidates predating the column.
     profile: str | None = None
 
 
@@ -84,9 +79,7 @@ class Application:
     job_id: str
     status: str
     created_at: str
-    # Apply-form inputs (the Ashby-style drawer). Optional with defaults so older
-    # rows and tests that omit them still construct. The résumé itself is NOT
-    # duplicated here — it lives on the candidate, linked via candidate_id.
+    # Apply-form inputs. Optional with defaults so older rows and tests still construct.
     name: str = ""
     email: str = ""
     earliest_start: str = ""  # e.g. "2026-08"
@@ -95,16 +88,12 @@ class Application:
     other_links: list[str] = field(default_factory=list)
     requires_visa: bool = False
     why_company: str = ""
-    # Filename of the résumé this application was submitted with. A record only
-    # (what they applied with) — the file is not parsed or embedded here, and an
-    # application-specific résumé never alters the candidate's ranking résumé.
-    resume_name: str = ""
+    resume_name: str = ""  # what they applied with; not parsed or embedded
 
 
 @dataclass(frozen=True)
 class SavedJob:
-    # A bookmark: a candidate's saved job. Tiny store — no body, just the link
-    # and when it was saved. PK is (candidate_id, job_id) so saving is idempotent.
+    # A bookmark. PK is (candidate_id, job_id) so saving is idempotent.
     candidate_id: str
     job_id: str
     created_at: str

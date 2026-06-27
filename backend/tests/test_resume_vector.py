@@ -45,13 +45,13 @@ def test_candidate_without_vector_still_roundtrips():
 def test_upload_stores_vector_and_rank_does_not_reembed():
     state = AppState.seeded(n=40, seed=11)
     calls = {"n": 0}
-    real_encode = state.embedder.encode
+    real_encode_query = state.embedder.encode_query
 
-    def counting_encode(texts):
+    def counting_encode_query(text):
         calls["n"] += 1
-        return real_encode(texts)
+        return real_encode_query(text)
 
-    state.embedder.encode = counting_encode  # type: ignore[method-assign]
+    state.embedder.encode_query = counting_encode_query  # type: ignore[method-assign]
 
     previous = app.dependency_overrides.get(get_state)
     app.dependency_overrides[get_state] = lambda: state

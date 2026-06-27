@@ -29,24 +29,16 @@ class JobFilters:
 
 class Database:
     def __init__(self, path: str = ":memory:") -> None:
-        # A file-backed deploy (e.g. CAREER_DB_PATH=/data/career.db on a mounted
-        # volume) may point at a directory that doesn't exist yet on first boot;
-        # create it so sqlite.connect doesn't fail before the volume is written to.
+        # A mounted-volume path may not exist on first boot — create it before connect.
         if path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        # check_same_thread=False lets the threadpool workers share one
-        # connection; self._lock serializes access so only one thread is ever
-        # inside the connection at a time (SQLite is a single-writer store).
+        # check_same_thread=False lets threadpool workers share one connection; _lock
+        # serializes access (SQLite is single-writer).
         self._conn = sqlite3.connect(path, check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
-        # WAL lets readers proceed without blocking on a writer (and vice versa),
-        # both across threads in this process and across separate OS processes if
-        # the app is ever run with multiple worker processes against the same
-        # file. Without it, SQLite's default rollback-journal mode takes a
-        # whole-file lock for writes, which can surface as "database is locked"
-        # under concurrent traffic. No-op for ":memory:" (no separate file to
-        # apply WAL to), harmless to set unconditionally.
+        # WAL lets readers and a writer proceed without blocking, avoiding
+        # "database is locked" under concurrent traffic. No-op for ":memory:".
         self._conn.execute("PRAGMA journal_mode=WAL")
 
     def init_schema(self) -> None:
@@ -86,9 +78,8 @@ class Database:
             self._conn.commit()
 
     def _migrate(self) -> None:
-        # CREATE TABLE IF NOT EXISTS never alters an existing table, so columns
-        # added after a DB file was first created must be backfilled here.
-        # Each entry is idempotent: add the column only when it's absent.
+        # Backfill columns added after a DB file was first created (CREATE TABLE IF NOT
+        # EXISTS never alters an existing table). Each entry is idempotent.
         additions = {
             "applications": [("resume_name", "TEXT")],
             "candidates": [("resume_vector", "BLOB"), ("profile", "TEXT")],
@@ -221,8 +212,7 @@ class Database:
         return {r["id"] for r in rows}
 
     def all_jobs(self) -> list[Job]:
-        # Whole catalog, id-ordered for determinism. Feeds the boot-time index
-        # build so the index always mirrors the persisted DB (caveat §0).
+        # Whole catalog, id-ordered for determinism; feeds the boot-time index build.
         with self._lock:
             rows = self._conn.execute("SELECT * FROM jobs ORDER BY id").fetchall()
         return [self._row_to_job(r) for r in rows]
