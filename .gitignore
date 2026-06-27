@@ -217,14 +217,25 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# Project docs (kept local, not committed)
-docs/
+# Working docs kept local. backend/docs (tradeoffs) and the whole root docs/
+# tree stay out of git — except the two committed deliverables: the design spec
+# and the next-steps report. caveats.md, plans/, and the other specs remain local.
+backend/docs/
+docs/*
+!docs/report.md
+!docs/specs/
+docs/specs/*
+!docs/specs/design.md
 
 # Local SQLite database files (incl. WAL-mode sidecar files)
 *.db
 *.db-wal
 *.db-shm
 *.db-journal
+
+# Real résumés used to calibrate the fit anchors — PII, kept local only.
+# (scripts/calibrate_fit.py reads these; the derived anchors are what gets committed.)
+backend/scripts/fixtures/resumes/
 
 # Precomputed embedding artifacts (generated at build, never committed)
 *.npz
