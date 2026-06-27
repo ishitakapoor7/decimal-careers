@@ -17,7 +17,12 @@ WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     FRONTEND_DIST=/app/frontend_dist \
-    CAREER_DB_PATH=/data/career.db
+    CAREER_DB_PATH=/data/career.db \
+    # Cap CPU threads so torch/BLAS don't oversubscribe the container's vCPU
+    # quota — without this a single résumé encode can take 15–30s (see Embedder).
+    OMP_NUM_THREADS=2 \
+    MKL_NUM_THREADS=2 \
+    TOKENIZERS_PARALLELISM=false
 
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
