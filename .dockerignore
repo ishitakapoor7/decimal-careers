@@ -1,0 +1,13 @@
+.git
+docs
+backend/docs
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/node_modules
+frontend/dist
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.db-journal
+**/.DS_Store

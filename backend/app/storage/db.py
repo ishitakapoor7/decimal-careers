@@ -2,6 +2,7 @@ import json
 import sqlite3
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 
 from app.storage.models import (
     Application,
@@ -28,6 +29,11 @@ class JobFilters:
 
 class Database:
     def __init__(self, path: str = ":memory:") -> None:
+        # A file-backed deploy (e.g. CAREER_DB_PATH=/data/career.db on a mounted
+        # volume) may point at a directory that doesn't exist yet on first boot;
+        # create it so sqlite.connect doesn't fail before the volume is written to.
+        if path != ":memory:":
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
         # check_same_thread=False lets the threadpool workers share one
         # connection; self._lock serializes access so only one thread is ever
         # inside the connection at a time (SQLite is a single-writer store).

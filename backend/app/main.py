@@ -3,9 +3,12 @@ import os
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.matching.fit import make_rescorer
 from app.resume.parser import parse_resume
@@ -292,3 +295,28 @@ def list_saved(
             item["saved_at"] = s.created_at
             items.append(item)
     return {"items": items}
+
+
+# --- Static frontend (single-origin deploy) ------------------------------------
+# When FRONTEND_DIST points at a built Vite bundle, serve it from this same app so
+# the SPA and the API share one origin (no CORS). Registered AFTER every API route,
+# so /jobs, /upload-resume, etc. always win; only unmatched paths fall through to
+# the SPA. Unset in tests/local dev (Vite's own server proxies /api), so this block
+# is a deploy-only no-op there.
+_FRONTEND_DIST = os.environ.get("FRONTEND_DIST")
+if _FRONTEND_DIST and Path(_FRONTEND_DIST).is_dir():
+    _dist = Path(_FRONTEND_DIST).resolve()
+    # Hashed Vite assets get a real static mount (proper caching/ETag handling).
+    _assets = _dist / "assets"
+    if _assets.is_dir():
+        app.mount("/assets", StaticFiles(directory=_assets), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa(full_path: str) -> FileResponse:
+        # Serve a real file when one exists (favicon, etc.); otherwise hand back
+        # index.html so client-side routes like /activity survive a hard refresh.
+        # Path is resolved and confined to _dist to block traversal (../../etc).
+        target = (_dist / full_path).resolve()
+        if full_path and target.is_file() and _dist in target.parents:
+            return FileResponse(target)
+        return FileResponse(_dist / "index.html")
