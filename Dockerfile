@@ -25,6 +25,14 @@ RUN pip install --no-cache-dir -r requirements.txt
 # download and cold start is just model load + seeding, not a ~80MB fetch.
 RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')"
 
+# The model is now in the image's HF cache. Go fully offline for the runtime so
+# SentenceTransformer loads straight from that cache and NEVER contacts the HF
+# Hub on boot — an unauthenticated Hub revision check gets rate-limited and
+# hangs, stalling startup forever and failing the healthcheck. Set AFTER the
+# build-time download above (which does need the network).
+ENV HF_HUB_OFFLINE=1 \
+    TRANSFORMERS_OFFLINE=1
+
 COPY backend/ ./
 COPY --from=frontend /app/frontend/dist ./frontend_dist
 
