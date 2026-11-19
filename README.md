@@ -2,7 +2,7 @@
 
 A career site where candidates browse open roles, upload a résumé, and see the
 listings re-ranked to their profile — semantic retrieval plus a calibrated,
-explainable fit layer. Built as a take-home for Decimal AI.
+explainable fit layer. 
 
 - **Design & reasoning:** [`docs/specs/design.md`](docs/specs/design.md)
 - **Next steps & scalability:** [`docs/report.md`](docs/report.md)
